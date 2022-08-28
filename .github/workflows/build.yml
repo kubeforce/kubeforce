@@ -1,9 +1,6 @@
 name: Build
 
 on:
-  push:
-    branches:
-      - "feature/*"
   pull_request:
     branches:
       - "main"
@@ -13,7 +10,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
@@ -29,12 +29,4 @@ jobs:
         run: make agent
 
       - name: Build controller
-        run: make controller
-
-#      - name: Set env GIT_VERSION
-#        run: echo "GIT_VERSION=$(./hack/version.sh version)" >> $GITHUB_ENV
-#
-#      - uses: actions/upload-artifact@main
-#        with:
-#          name: artifacts
-#          path: _build/${{ env.GIT_VERSION }}
+        run: make controller-build

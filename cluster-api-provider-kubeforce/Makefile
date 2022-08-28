@@ -177,7 +177,7 @@ clean-release-git: ## Restores the git files usually modified during a release
 
 # the previous release tag, e.g., v0.3.9, excluding pre-release tags
 ## set by Prow, ref name of the base branch, e.g., main
-RELEASE_DIR := $(BUILD_DIR)/release/$(VERSION)
+RELEASE_DIR ?= $(BUILD_DIR)/release/$(VERSION)
 
 $(RELEASE_DIR):
 	mkdir -p $(RELEASE_DIR)/
@@ -190,7 +190,7 @@ release: ## Build and push container images using the latest git tag for the com
 	# Set the manifest image to the production bucket.
 	$(MAKE) manifest-modification
 	## Build the manifests
-	$(MAKE) release-manifests
+	RELEASE_DIR=$(RELEASE_DIR) $(MAKE) release-manifests
 	## Clean the git artifacts modified in the release process
 	$(MAKE) clean-release-git
 
