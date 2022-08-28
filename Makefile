@@ -25,9 +25,17 @@ agent: ## Build the agent binaries
 controller-test: ## Run the controller unit tests
 	$(MAKE) -C cluster-api-provider-kubeforce test
 
-.PHONY: controller
-controller: ## Build the controller binaries
+.PHONY: controller-build
+controller-build: ## Build the controller docker images
 	$(MAKE) -C cluster-api-provider-kubeforce docker-build
+
+.PHONY: controller-build-all
+controller-build-all: ## Build the controller docker images for all architectures
+	$(MAKE) -C cluster-api-provider-kubeforce docker-build-all
+
+.PHONY: controller-push-all
+controller-push-all: ## Push the controller docker images for all architectures
+	$(MAKE) -C cluster-api-provider-kubeforce docker-push-all
 
 ## --------------------------------------
 ## Release
@@ -50,7 +58,7 @@ $(RELEASE_NOTES_DIR):
 	mkdir -p $(RELEASE_NOTES_DIR)/
 
 .PHONY: release
-release: $(RELEASE_DIR) $(RELEASE_NOTES_DIR) ## Build and push container images using the latest git tag for the commit
+release: $(RELEASE_DIR) $(RELEASE_NOTES_DIR) ## Build release artifacts using the latest git tag for the commit
 	@if [ -z "${VERSION}" ]; then echo "VERSION is not set"; exit 1; fi
 	@if ! [ -z "$$(git status --porcelain)" ]; then echo "Your local git repository contains uncommitted changes, use git clean before proceeding."; exit 1; fi
 	$(MAKE) -C cluster-api-provider-kubeforce release
