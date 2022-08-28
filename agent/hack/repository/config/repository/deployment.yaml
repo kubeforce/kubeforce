@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-repository
+  namespace: system
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: agent-repository
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: agent-repository
+    spec:
+      containers:
+        - name: repository
+          image: agent-repository:latest
+          ports:
+            - containerPort: 80
+              name: http
+          securityContext:
+            allowPrivilegeEscalation: false
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 100m
+              memory: 30Mi
+            requests:
+              cpu: 100m
+              memory: 20Mi
+      terminationGracePeriodSeconds: 10

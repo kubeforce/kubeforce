@@ -1,0 +1,11 @@
+#IDE
+.idea/
+*.iml
+
+#Temporary
+tmp/
+test/docker-compose/kubeconfig.yaml
+
+#Build direcory
+_build/
+.tiltbuild/

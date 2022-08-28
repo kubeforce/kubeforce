@@ -1,0 +1,132 @@
+/*
+Copyright 2021 The Kubeforce Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package agent
+
+import (
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+// Playbook
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type Playbook struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec   PlaybookSpec
+	Status PlaybookStatus
+}
+
+// PlaybookList
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type PlaybookList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []Playbook
+}
+
+// PlaybookSpec defines the desired state of Playbook
+type PlaybookSpec struct {
+	// Policy is the playbook execution policy
+	// +optional
+	Policy *Policy
+	// Files is playbook files.
+	// The key is a file name, the value of the map is the content of the file.
+	Files map[string]string
+	// Entrypoint is file path to execute this playbook.
+	// Entrypoint must be one of file specified in the Files field of this playbook
+	Entrypoint string
+}
+
+// PlaybookStatus defines the observed state of Playbook
+type PlaybookStatus struct {
+	// Phase is the phase of a Playbook, high-level summary of where the Playbook is in its lifecycle.
+	// +optional
+	Phase PlaybookPhase
+	// Conditions defines current state of the Playbook.
+	// +optional
+	Conditions Conditions
+	// The number of times the playbook has reached the Failed phase.
+	// +optional
+	Failed int32
+}
+
+// Policy defines the playbook execution policy
+type Policy struct {
+	// Specifies the duration in seconds relative to the startTime that the job may be active
+	// before the system tries to terminate it.
+	// +optional
+	Timeout *metav1.Duration
+
+	// Specifies the number of retries before marking this playbook failed.
+	// Defaults to 3
+	// +optional
+	BackoffLimit *int32
+}
+
+// PlaybookPhase defines the phase of playbook at the current time.
+type PlaybookPhase string
+
+// These are the valid phases of Playbook.
+const (
+	// PlaybookPending means the Playbook has been accepted by the system, but it has not been started.
+	PlaybookPending PlaybookPhase = "Pending"
+	// PlaybookRunning means the Playbook has been started.
+	PlaybookRunning PlaybookPhase = "Running"
+	// PlaybookSucceeded means that the Playbook has terminated with an exit code of 0,
+	// and the system is not going to restart this Playbook.
+	PlaybookSucceeded PlaybookPhase = "Succeeded"
+	// PlaybookFailed means that the Playbook has terminated, in a failure
+	// (exited with a non-zero exit code or was stopped by the system).
+	PlaybookFailed PlaybookPhase = "Failed"
+	// PlaybookUnknown means that for some reason the state of the Playbook could not be obtained.
+	PlaybookUnknown PlaybookPhase = "Unknown"
+)
+
+// Conditions provide observations of the operational state
+type Conditions []Condition
+
+// ConditionType is a valid value for Condition.Type.
+type ConditionType string
+
+// Condition defines an observation of a Cluster API resource operational state.
+type Condition struct {
+	// Type of condition in CamelCase or in foo.example.com/CamelCase.
+	// Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
+	// can be useful (see .node.status.conditions), the ability to deconflict is important.
+	Type ConditionType `json:"type"`
+
+	// Status of the condition, one of True, False, Unknown.
+	Status corev1.ConditionStatus `json:"status"`
+
+	// Last time the condition transitioned from one status to another.
+	// This should be when the underlying condition changed. If that is not known, then using the time when
+	// the API field changed is acceptable.
+	LastTransitionTime metav1.Time `json:"lastTransitionTime"`
+
+	// The reason for the condition's last transition in CamelCase.
+	// The specific API may choose whether or not this field is considered a guaranteed API.
+	// This field may not be empty.
+	// +optional
+	Reason string `json:"reason,omitempty"`
+
+	// A human readable message indicating details about the transition.
+	// This field may be empty.
+	// +optional
+	Message string `json:"message,omitempty"`
+}

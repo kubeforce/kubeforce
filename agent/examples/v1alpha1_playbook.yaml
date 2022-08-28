@@ -1,0 +1,11 @@
+apiVersion: agent.kubeforce.io/v1alpha1
+kind: Playbook
+metadata:
+  name: playbook-sample
+  labels:
+    qwe: asd
+spec:
+  files:
+    "file1.yaml": |
+      foo: bar
+  entrypoint: "file1.yaml"

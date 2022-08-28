@@ -1,0 +1,28 @@
+#api:
+#  insecure: true
+#global:
+#  checkNewVersion: false
+#  sendAnonymousUsage: false
+serversTransport:
+  maxIdleConnsPerHost: 100
+  forwardingTimeouts:
+    dialTimeout: 10s
+    responseHeaderTimeout: 10s
+    idleConnTimeout: 10s
+entryPoints:
+  controlplane:
+    address: ":{{ bindPort }}"
+    transport:
+      lifeCycle:
+        graceTimeOut: 10s
+      respondingTimeouts:
+        readTimeout: 10s
+        writeTimeout: 10s
+        idleTimeout: 10s
+log:
+  level: DEBUG
+providers:
+  file:
+    watch: true
+    directory: /etc/traefik/conf.d/
+    debugLogGeneratedTemplate: true

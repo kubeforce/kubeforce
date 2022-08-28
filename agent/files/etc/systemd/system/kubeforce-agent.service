@@ -1,0 +1,15 @@
+[Unit]
+Description=The Kubeforce Node Agent
+Documentation=https://kubeforce.io/docs/agent/
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=0
+ConditionPathExists=/var/lib/kubeforce/config.yaml
+
+[Service]
+ExecStart=/usr/local/bin/kubeforce-agent service -c /var/lib/kubeforce/config.yaml
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

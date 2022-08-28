@@ -1,0 +1,79 @@
+- name: Configure a loadbalancer for apiserver
+  hosts: localhost
+  connection: local
+  become: yes
+  vars:
+    apiServers: []
+    apiServerPort: 6443
+    targetArch: amd64
+    targetOS: linux
+    traefikVersion: v2.6.3
+    downloadDir: /opt/kubeforce/download
+    bindPort: 9443
+    traefikTarGzUrl: "https://github.com/traefik/traefik/releases/download/{{ traefikVersion }}/traefik_{{ traefikVersion }}_{{ targetOS }}_{{ targetArch }}.tar.gz"
+    traefikFileName: "traefik_{{ traefikVersion }}_{{ targetOS }}_{{ targetArch }}.tar.gz"
+  vars_files:
+    - variables.yaml
+  tasks:
+    - name: Creating directories
+      file:
+        path: "{{ item.path }}"
+        state: directory
+        mode: "{{ item.mode }}"
+      with_items:
+        - path: "{{ downloadDir }}"
+          mode: '0755'
+        - path: /etc/traefik/
+          mode: '0755'
+        - path: /etc/traefik/conf.d/
+          mode: '0755'
+        - path: /usr/local/traefik/bin
+          mode: '0755'
+
+    - name: Download traefik archive
+      get_url:
+        url: "{{ item.url }}"
+        dest: "{{ item.dest }}"
+      with_items:
+        - url: "{{ traefikTarGzUrl }}"
+          dest: "{{ downloadDir }}/{{ traefikFileName }}"
+
+    - name: Unpack traefik archive
+      unarchive:
+        src: "{{ downloadDir }}/{{ traefikFileName }}"
+        dest: "/usr/local/traefik/bin"
+      notify:
+        - Restart traefik
+
+    - name: Copy static config files
+      template:
+        src: "files{{ item }}"
+        dest: "{{ item | regex_replace('\\.j2$', '') }}"
+      with_items:
+        - /etc/traefik/traefik.yaml
+        - /etc/systemd/system/traefik.service
+      notify:
+        - Restart traefik
+
+    - name: Copy dynamic config files
+      template:
+        src: "files{{ item }}"
+        dest: "{{ item | regex_replace('\\.j2$', '') }}"
+      with_items:
+        - /etc/traefik/conf.d/apiserver.yaml
+
+    - name: Start services, if not started
+      service:
+        name: "{{ item }}"
+        state: started
+        daemon_reload: true
+        enabled: yes
+      with_items:
+        - traefik.service
+
+  handlers:
+    - name: Restart traefik
+      service:
+        daemon_reload: true
+        name: traefik.service
+        state: restarted

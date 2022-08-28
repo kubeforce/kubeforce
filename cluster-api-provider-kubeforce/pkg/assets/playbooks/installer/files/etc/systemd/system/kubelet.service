@@ -1,0 +1,20 @@
+[Unit]
+Description=kubelet: The Kubernetes Node Agent
+Documentation=https://kubernetes.io/docs/home/
+Wants=network-online.target
+After=network-online.target
+
+# NOTE: kind deviates from upstream here to avoid crashlooping
+# This does *not* support altering the kubelet config path though.
+# We intend to upstream this change but first need to solve the upstream
+# Packaging problem (all kubernetes versions use the same files out of tree).
+ConditionPathExists=/var/lib/kubelet/config.yaml
+
+[Service]
+ExecStart=/usr/local/bin/kubelet
+Restart=always
+StartLimitInterval=0
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

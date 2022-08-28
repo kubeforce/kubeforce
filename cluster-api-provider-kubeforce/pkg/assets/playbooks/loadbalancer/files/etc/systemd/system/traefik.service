@@ -1,0 +1,23 @@
+[Unit]
+Description=traefik proxy
+After=network-online.target
+Wants=network-online.target systemd-networkd-wait-online.service
+
+# disable rate limiting
+StartLimitIntervalSec=0
+
+[Service]
+ExecStart=/usr/local/traefik/bin/traefik --configFile=/etc/traefik/traefik.yaml
+Restart=always
+RestartSec=1
+
+Delegate=yes
+KillMode=process
+Restart=always
+
+LimitNOFILE=1048576
+ProtectHome=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

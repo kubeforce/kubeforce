@@ -1,0 +1,53 @@
+- name: Remove kubernetes components
+  hosts: localhost
+  connection: local
+  become: yes
+  tasks:
+    - name: Locating all files in manifest dir
+      find:
+        path: "/etc/kubernetes/manifests/"
+      register: cleanup
+      ignore_errors: true
+
+    - name: Removing all files in manifest dir
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      with_items: "{{ cleanup.files }}"
+      ignore_errors: true
+
+    - shell: "crictl rm -f $(crictl ps -q)"
+      ignore_errors: true
+
+    - name: Populate service facts
+      ansible.builtin.service_facts:
+
+    - name: Stop services, if not started
+      service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+      when: "item|string in ansible_facts.services"
+      with_items:
+        - containerd.service
+        - kubelet.service
+        - traefik.service
+
+    - name: Remove directories/files
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - "/etc/containerd/"
+        - "/var/lib/containerd/"
+        - "/usr/local/sbin/runc"
+        - "/usr/local/bin/crictl"
+        - "/usr/local/bin/kubectl"
+        - "/usr/local/bin/kubelet"
+        - "/usr/local/bin/containerd"
+        - "/etc/crictl.yaml"
+        - "/etc/systemd/system/kubelet.service.d/"
+        - "/etc/kubernetes/"
+        - "/etc/traefik/"
+        - "/var/lib/etcd"
+

@@ -1,0 +1,215 @@
+- name: Default playbook
+  hosts: localhost
+  connection: local
+  become: yes
+  vars:
+    targetArch: amd64
+    downloadDir: /opt/kubeforce/download
+    containerdVersion: 1.5.4
+#    containerdFileName: "containerd-{{ containerdVersion }}-linux-{{ targetArch }}.tar.gz"
+#    containerdTarGzUrl: "https://github.com/containerd/containerd/releases/download/v{{ containerdVersion }}/{{ containerdFileName }}"
+    containerdFileName: "containerd-{{ containerdVersion }}.linux-{{ targetArch }}.tar.gz"
+    containerdBaseUrl: "https://github.com/kind-ci/containerd-nightlies/releases/download/containerd-{{ containerdVersion }}"
+    containerdTarGzUrl: "{{ containerdBaseUrl }}/{{ containerdFileName }}"
+    runcUrl: "{{ containerdBaseUrl }}/runc.{{ targetArch }}"
+    cniPluginsVersion: v0.9.1
+    cniPluginsFileName: "cni-plugins-linux-{{ targetArch }}-{{ cniPluginsVersion }}.tgz"
+    cniPluginsTarGzUrl: "https://github.com/containernetworking/plugins/releases/download/{{ cniPluginsVersion }}/{{ cniPluginsFileName }}"
+    crictlVersion: v1.21.0
+    crictlFileName: "crictl-{{ crictlVersion }}-linux-{{ targetArch }}.tar.gz"
+    crictlTarGzUrl: "https://github.com/kubernetes-sigs/cri-tools/releases/download/{{ crictlVersion }}/{{ crictlFileName }}"
+    kubernetesVersion: v1.21.3
+    kubernetesPath: "https://storage.googleapis.com/kubernetes-release/release/{{ kubernetesVersion }}/bin/linux/{{ targetArch }}"
+  vars_files:
+    - variables.yaml
+  tasks:
+    - name: ensure packages
+      package:
+        name:
+          - socat
+          - ebtables
+          - ethtool
+          - conntrack
+          - iptables
+        state: present
+    - name: optional packages
+      package:
+        name:
+          - curl
+        state: present
+
+    - name: Populate service facts
+      ansible.builtin.service_facts:
+
+    - name: Creating directories
+      file:
+        path: "{{ item.path }}"
+        state: directory
+        mode: "{{ item.mode }}"
+      with_items:
+        - path: "{{ downloadDir }}"
+          mode: '0755'
+        - path: /etc/containerd/
+          mode: '0755'
+        - path: /etc/systemd/system/kubelet.service.d/
+          mode: '0755'
+        - path: /etc/kubernetes/manifests/
+          mode: '0700'
+
+    - name: Download
+      get_url:
+        url: "{{ item.url }}"
+        dest: "{{ item.dest }}"
+      with_items:
+        - url: "{{ containerdTarGzUrl }}"
+          dest: "{{ downloadDir }}/{{ containerdFileName }}"
+        - url: "{{ cniPluginsTarGzUrl }}"
+          dest: "{{ downloadDir }}/{{ cniPluginsFileName }}"
+        - url: "{{ crictlTarGzUrl }}"
+          dest: "{{ downloadDir }}/{{ crictlFileName }}"
+        - url: "{{ kubernetesPath }}/kubeadm"
+          dest: "{{ downloadDir }}/kubeadm-{{ kubernetesVersion }}"
+        - url: "{{ kubernetesPath }}/kubelet"
+          dest: "{{ downloadDir }}/kubelet-{{ kubernetesVersion }}"
+        - url: "{{ kubernetesPath }}/kubectl"
+          dest: "{{ downloadDir }}/kubectl-{{ kubernetesVersion }}"
+        - url: "{{ runcUrl }}"
+          dest: "{{ downloadDir }}/runc-{{ containerdVersion }}"
+
+    - name: Copy runc
+      copy:
+        src: "{{ downloadDir }}/runc-{{ containerdVersion }}"
+        dest: /usr/local/sbin/runc
+        mode: "0755"
+
+    - name: Unpack containerd archive
+      unarchive:
+        src: "{{ downloadDir }}/{{ containerdFileName }}"
+        dest: "/usr/local"
+      notify:
+        - Restart containerd
+
+    - name: Unpack crictl archive
+      unarchive:
+        src: "{{ downloadDir }}/{{ crictlFileName }}"
+        dest: "/usr/local/bin"
+
+    - name: Ensure cni plugins directory exists
+      file:
+        path: /opt/cni/bin
+        state: directory
+      register: cni_archive_rs
+    - name: Unpack cni archive
+      unarchive:
+        src: "{{ downloadDir }}/{{ cniPluginsFileName }}"
+        dest: "/opt/cni/bin"
+
+    - shell: containerd --version
+      register: containerdVersion
+    - debug:
+        msg: "{{ containerdVersion.stdout }}"
+    - shell: crictl --version
+      register: crictlVersion
+    - debug:
+        msg: "{{ crictlVersion.stdout }}"
+
+    - name: Copy crictl files
+      copy:
+        src: "files{{ item }}"
+        dest: "{{ item }}"
+      with_items:
+        - /etc/crictl.yaml
+
+    - name: Copy sysctl files
+      copy:
+        src: "files{{ item }}"
+        dest: "{{ item }}"
+      with_items:
+        - /etc/sysctl.d/
+      notify:
+        - Reload sysctl
+
+    - name: Copy containerd service files
+      copy:
+        src: "files{{ item }}"
+        dest: "{{ item }}"
+      with_items:
+        - /etc/containerd/config.toml
+        - /etc/systemd/system/containerd.service
+#        - /etc/systemd/system/containerd-fuse-overlayfs.service
+      notify:
+        - Restart containerd
+
+    - name: Copy kubernetes components
+      copy:
+        src: "{{ downloadDir }}/{{ item }}-{{ kubernetesVersion }}"
+        dest: "/usr/local/bin/{{ item }}"
+        mode: "0755"
+      with_items:
+        - kubeadm
+        - kubelet
+        - kubectl
+      notify:
+        - Restart kubelet
+
+    - name: Copy kubernetes service files
+      copy:
+        src: "files{{ item }}"
+        dest: "{{ item }}"
+      with_items:
+        - /etc/systemd/system/kubelet.service
+        - /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+      notify:
+        - Restart containerd
+
+    - name: Copy NetworkManager files
+      copy:
+        src: "files{{ item }}"
+        dest: "{{ item }}"
+      when: "'NetworkManager.service' in ansible_facts.services"
+      with_items:
+        - /etc/NetworkManager/conf.d/
+      notify:
+        - Restart NetworkManager
+
+    - name: Start services, if not started
+      service:
+        name: "{{ item }}"
+        state: started
+        daemon_reload: true
+        enabled: yes
+      with_items:
+        - containerd.service
+        - kubelet.service
+
+#    - shell: runc --version
+#      register: runcVersion
+#    - debug:
+#        msg: "{{ runcVersion.stdout }}"
+
+  handlers:
+    - name: Restart containerd
+      service:
+        daemon_reload: true
+        name: containerd.service
+        state: restarted
+    - name: Restart kubelet
+      service:
+        daemon_reload: true
+        name: kubelet.service
+        state: restarted
+    - name: Restart NetworkManager
+      service:
+        daemon_reload: true
+        name: NetworkManager.service
+        state: restarted
+    - name: Reload sysctl
+      shell: sysctl --system
+
+
+# docker run -ti --name=knode --privileged --security-opt seccomp=unconfined --tmpfs /tmp --tmpfs /run -v /var -v /lib/modules:/lib/modules:ro kindest/node:v1.21.2
+# docker exec -ti -e KUBECONFIG=/etc/kubernetes/admin.conf knode bash
+# sed -i "s:--cgroup-root=/kubelet::g" /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+# kubeadm init --ignore-preflight-errors=Swap --v=6
+# kubeadm init --skip-phases=preflight --v=6
+

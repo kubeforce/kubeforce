@@ -1,0 +1,14 @@
+name: "kubeforce"
+label: "KUBEFORCE"
+manager_name: "kubeforce-controller-manager"
+context: "./cluster-api-provider-kubeforce"
+config:
+  image: "ghcr.io/kubeforce/cluster-api-kubeforce-controller"
+  context: "./cluster-api-provider-kubeforce"
+  live_reload_deps:
+    - "main.go"
+    - "../go.mod"
+    - "../go.sum"
+    - "api"
+    - "controllers"
+    - "pkg"

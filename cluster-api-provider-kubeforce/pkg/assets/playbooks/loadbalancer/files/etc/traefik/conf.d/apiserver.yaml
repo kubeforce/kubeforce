@@ -1,0 +1,16 @@
+tcp:
+  routers:
+    tcprouter0:
+      entryPoints:
+        - controlplane
+      service:  kube-apiservers
+      rule: "HostSNI(`*`)"
+      tls:
+        passthrough: true
+  services:
+    kube-apiservers:
+      loadBalancer:
+        servers:
+{% for address in apiServers %}
+          - address: {{ address }}:{{ apiServerPort }}
+{% endfor %}

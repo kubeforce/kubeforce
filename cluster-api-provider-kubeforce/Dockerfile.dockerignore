@@ -1,0 +1,11 @@
+# Ignore everything
+**
+
+# Allow files and directories
+!go.mod
+!go.sum
+!/cluster-api-provider-kubeforce/main.go
+!/cluster-api-provider-kubeforce/pkg/
+!/cluster-api-provider-kubeforce/api/
+!/cluster-api-provider-kubeforce/controllers/
+!agent/pkg/

@@ -1,0 +1,369 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-ssh-auth
+data:
+  # ssh-password: test
+  ssh-password: dGVzdA==
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: agent-auth-ca
+  labels:
+    component: agent-auth-ca-issuer
+spec:
+  secretName: agent-auth-ca
+  commonName: "Root CA"
+  subject:
+    organizations:
+      - "Link LTD"
+  usages:
+    - "digital signature"
+    - "cert sign"
+    - "crl sign"
+  isCA: true
+  duration: 87600h0m0s # 10 years
+  renewBefore: 720h0m0s # 30 days
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: agent-auth-ca-issuer
+  labels:
+    component: agent-auth-ca-issuer
+spec:
+  ca:
+    secretName: agent-auth-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: agent-client
+spec:
+  secretName: agent-client-tls
+  commonName: "agent client"
+  usages:
+    - "signing"
+    - "key encipherment"
+    - "client auth"
+  isCA: false
+  duration: 87600h0m0s # 10 years
+  renewBefore: 720h0m0s # 30 days
+  #  privateKey:
+  #    algorithm: ECDSA
+  #    size: 256
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  issuerRef:
+    name: agent-auth-ca-issuer
+    kind: Issuer
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HTTPRepository
+metadata:
+  name: local-agent-repo
+spec:
+  url: http://kubeforce-agent-repository.kubeforce-system.svc/repository/
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: KubeforceAgentGroup
+metadata:
+  name: masters
+  namespace: default
+spec:
+  addresses:
+    master1:
+      hostname: master1
+      externalIP: 172.18.0.4
+    master2:
+      hostname: master2
+      externalIP: 172.18.0.5
+#  addressRanges:
+#    - from: 172.18.0.10
+#      to: 172.18.0.15
+#      hostname: "master-{{ .index }}.local"
+  template:
+    metadata:
+      labels:
+        role: master
+    spec:
+      source:
+        repoRef:
+          apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+          kind: HTTPRepository
+          name: local-agent-repo
+        version: latest
+      ssh:
+        username: test
+        secretName: secret-ssh-auth
+      config:
+        certIssuerRef:
+          apiGroup: "cert-manager.io"
+          kind: Issuer
+          name: selfsigned-issuer
+        authentication:
+          x509:
+            caSecret: agent-auth-ca
+            clientSecret: agent-client-tls
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: KubeforceAgent
+metadata:
+  name: master-3
+  labels:
+    role: master
+spec:
+  addresses:
+    hostname: master3
+    externalIP: 172.18.0.6
+  source:
+    repoRef:
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      kind: HTTPRepository
+      name: local-agent-repo
+    version: latest
+  ssh:
+    username: test
+    secretName: secret-ssh-auth
+  config:
+    certIssuerRef:
+      apiGroup: "cert-manager.io"
+      kind: Issuer
+      name: selfsigned-issuer
+    authentication:
+      x509:
+        caSecret: agent-auth-ca
+        clientSecret: agent-client-tls
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: sample
+  namespace: default
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+        - 100.96.0.0/11
+    serviceDomain: cluster.local
+    services:
+      cidrBlocks:
+        - 10.128.0.0/12
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    kind: KubeadmControlPlane
+    name: sample-control-plane
+    namespace: default
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: KubeforceCluster
+    name: sample
+    namespace: default
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: KubeforceCluster
+metadata:
+  name: sample
+  namespace: default
+spec: {}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: KubeforceMachineTemplate
+metadata:
+  name: sample-control-plane
+  namespace: default
+spec:
+  template:
+    spec:
+      agentSelector:
+        matchLabels:
+          role: master
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: KubeadmControlPlane
+metadata:
+  name: sample-control-plane
+  namespace: default
+spec:
+  rolloutStrategy:
+    rollingUpdate:
+      maxSurge: 0
+  kubeadmConfigSpec:
+    clusterConfiguration:
+      controlPlaneEndpoint: "127.0.0.1:9443"
+      apiServer:
+        certSANs:
+          - localhost
+          - 127.0.0.1
+          - 172.18.0.4
+          - 172.18.0.5
+          - 172.18.0.6
+      controllerManager:
+        extraArgs:
+          enable-hostpath-provisioner: "true"
+    initConfiguration:
+      nodeRegistration:
+        criSocket: /var/run/containerd/containerd.sock
+        kubeletExtraArgs:
+          fail-swap-on: "false"
+          cgroup-driver: cgroupfs
+          eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
+    joinConfiguration:
+      nodeRegistration:
+        criSocket: /var/run/containerd/containerd.sock
+        kubeletExtraArgs:
+          fail-swap-on: "false"
+          cgroup-driver: cgroupfs
+          eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
+  machineTemplate:
+    infrastructureRef:
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      kind: KubeforceMachineTemplate
+      name: sample-control-plane
+      namespace: default
+  replicas: 3
+  version: v1.23.1
+---
+### WORKERS
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: KubeforceAgentGroup
+metadata:
+  name: workers
+  namespace: default
+spec:
+  addresses:
+    worker1:
+      hostname: worker1
+      externalIP: 172.18.0.7
+    worker2:
+      hostname: worker2
+      externalIP: 172.18.0.8
+  template:
+    metadata:
+      labels:
+        role: worker
+    spec:
+      source:
+        repoRef:
+          apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+          kind: HTTPRepository
+          name: local-agent-repo
+        version: latest
+      ssh:
+        username: test
+        secretName: secret-ssh-auth
+      config:
+        certIssuerRef:
+          apiGroup: "cert-manager.io"
+          kind: Issuer
+          name: selfsigned-issuer
+        authentication:
+          x509:
+            caSecret: agent-auth-ca
+            clientSecret: agent-client-tls
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: KubeforceAgent
+metadata:
+  name: worker-3
+  labels:
+    role: worker
+spec:
+  source:
+    repoRef:
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      kind: HTTPRepository
+      name: local-agent-repo
+    version: latest
+  addresses:
+    hostname: master3
+    externalIP: 172.18.0.9
+  ssh:
+    username: test
+    secretName: secret-ssh-auth
+  config:
+    certIssuerRef:
+      apiGroup: "cert-manager.io"
+      kind: Issuer
+      name: selfsigned-issuer
+    authentication:
+      x509:
+        caSecret: agent-auth-ca
+        clientSecret: agent-client-tls
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: KubeforceMachineTemplate
+metadata:
+  name: sample-workers
+  namespace: default
+spec:
+  template:
+    spec:
+      agentSelector:
+        matchLabels:
+          role: worker
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfigTemplate
+metadata:
+  name: sample-workers
+  namespace: default
+spec:
+  template:
+    spec:
+      joinConfiguration:
+        nodeRegistration:
+          kubeletExtraArgs:
+            fail-swap-on: "false"
+            cgroup-driver: cgroupfs
+            eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineDeployment
+metadata:
+  name: workers
+  namespace: default
+spec:
+  clusterName: sample
+  replicas: 2
+  selector:
+    matchLabels: null
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  template:
+    spec:
+      bootstrap:
+        configRef:
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+          kind: KubeadmConfigTemplate
+          name: sample-workers
+          namespace: default
+      clusterName: sample
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: KubeforceMachineTemplate
+        name: sample-workers
+        namespace: default
+      version: v1.22.3
+---
+#kubectl apply -f https://projectcalico.docs.tigera.io/manifests/calico.yaml
