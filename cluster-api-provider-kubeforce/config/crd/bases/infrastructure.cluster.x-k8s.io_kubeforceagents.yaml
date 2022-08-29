@@ -134,6 +134,11 @@ spec:
                   the host
                 type: boolean
               source:
+                default:
+                  repoRef:
+                    kind: HTTPRepository
+                    name: github
+                    namespace: kubeforce-system
                 description: Source is a source of the agent binary.
                 properties:
                   path:

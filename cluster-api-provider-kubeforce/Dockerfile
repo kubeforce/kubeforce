@@ -44,6 +44,6 @@ FROM gcr.io/distroless/static:nonroot
 LABEL org.opencontainers.image.source="https://github.com/kubeforce/kubeforce"
 WORKDIR /
 COPY --from=builder /workspace/manager .
-# Use uid of nonroot user (65532) because kubernetes expects numeric user when applying pod security policies
-USER 65532
+# Use uid of nonroot user (65534) because kubernetes expects numeric user when applying pod security policies
+USER 65534
 ENTRYPOINT ["/manager"]

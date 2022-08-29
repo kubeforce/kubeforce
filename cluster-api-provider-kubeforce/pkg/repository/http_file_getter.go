@@ -60,18 +60,20 @@ func (g *HTTPFileRepository) RemoveCache() error {
 
 func (g *HTTPFileRepository) download(url string) downloader {
 	return func(ctx context.Context, w io.Writer) error {
+		ctx, cancelFunc := context.WithTimeout(ctx, g.repository.Spec.Timeout.Duration)
+		defer cancelFunc()
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to create request(GET): %q", url)
 		}
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to download file: %q", url)
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("bad status: %s", resp.Status)
+			return fmt.Errorf("bad status: %q url: %q", resp.Status, url)
 		}
 		_, err = io.Copy(w, resp.Body)
 		if err != nil {

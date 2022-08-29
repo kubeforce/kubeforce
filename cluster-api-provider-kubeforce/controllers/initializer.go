@@ -103,6 +103,6 @@ func (i *Initializer) ensureGitHubRepo(ctx context.Context) error {
 func (i *Initializer) defaultGitHubRepo(r *infrav1.HTTPRepository) {
 	r.Name = githubRepoName
 	r.Namespace = githubRepoNamespace
-	r.Spec.URL = "https://github.com/kubeforce/plugins/releases/download/"
-	r.Spec.Timeout = &metav1.Duration{Duration: 10 * time.Second}
+	r.Spec.URL = "https://github.com/kubeforce/kubeforce/releases/download/"
+	r.Spec.Timeout = &metav1.Duration{Duration: 90 * time.Second}
 }
