@@ -31,6 +31,10 @@ spec:
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
+          runAsUser: 65534
+        volumeMounts:
+          - mountPath: /var/lib/kubeforce
+            name: cache-volume
         livenessProbe:
           httpGet:
             path: /healthz
@@ -52,3 +56,9 @@ spec:
             memory: 20Mi
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 65534
+      volumes:
+        - name: cache-volume
+          emptyDir: {}

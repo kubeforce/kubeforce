@@ -63,6 +63,7 @@ type KubeforceAgentSpec struct {
 	Installed bool `json:"installed,omitempty"`
 
 	// Source is a source of the agent binary.
+	// +kubebuilder:default:={repoRef:{kind: "HTTPRepository", name:"github", namespace: "kubeforce-system"}}
 	// +optional
 	Source *AgentSource `json:"source,omitempty"`
 
