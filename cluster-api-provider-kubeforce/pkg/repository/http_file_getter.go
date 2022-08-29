@@ -60,8 +60,11 @@ func (g *HTTPFileRepository) RemoveCache() error {
 
 func (g *HTTPFileRepository) download(url string) downloader {
 	return func(ctx context.Context, w io.Writer) error {
-		ctx, cancelFunc := context.WithTimeout(ctx, g.repository.Spec.Timeout.Duration)
-		defer cancelFunc()
+		if g.repository.Spec.Timeout != nil {
+			var cancelFunc context.CancelFunc
+			ctx, cancelFunc = context.WithTimeout(ctx, g.repository.Spec.Timeout.Duration)
+			defer cancelFunc()
+		}
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {
 			return fmt.Errorf("unable to create request(GET): %q", url)
