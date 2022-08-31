@@ -219,7 +219,7 @@ func (h *Helper) GetSshAuthMethod(ctx context.Context) (ssh.AuthMethod, error) {
 		return ssh.Password(string(sshPassword)), nil
 	}
 	sshPrivateKey := s.Data[corev1.SSHAuthPrivateKey]
-	if len(sshPrivateKey) > 0 {
+	if len(sshPrivateKey) == 0 {
 		return nil, errors.Errorf("one of fields 'ssh-password' or 'ssh-privatekey' is required for secret %v", key)
 	}
 	sshPassphrase := s.Data[secret.SSHAuthPassphrase]

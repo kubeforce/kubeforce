@@ -73,18 +73,21 @@ func newWorker(m *controller, probe ProbeHandler, probeParams ProbeParams) *work
 
 // run periodically probes the container.
 func (w *worker) run(ctx context.Context) {
+	w.probeController.log.Info("the probe worker has been started", "key", w.probe.GetKey())
 
 	// If controller restarted the probes could be started in rapid succession.
 	// Let the worker wait for a random portion of tickerPeriod before probing.
 	time.Sleep(time.Duration(rand.Float64() * float64(time.Duration(w.getProbeParams().PeriodSeconds)*time.Second)))
 
 	defer func() {
+		w.probeController.log.Info("the probe worker has been stopped", "key", w.probe.GetKey())
 		// Clean up.
 		ProberResults.Delete(w.proberResultsSuccessfulMetricLabels)
 		ProberResults.Delete(w.proberResultsFailedMetricLabels)
 		// close waitCh before remove worker from prob controller
 		w.stop()
 		w.probeController.removeWorker(w.probe.GetKey())
+		w.probeController.log.Info("the probe worker has been removed", "key", w.probe.GetKey())
 	}()
 
 probeLoop:

@@ -21,8 +21,6 @@ import (
 	"context"
 	"time"
 
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/repository"
-
 	certutil "github.com/cert-manager/cert-manager/pkg/api/util"
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -33,6 +31,7 @@ import (
 	agentctrl "k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
 	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/prober"
 	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/agent"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/repository"
 	stringutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/strings"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -264,6 +263,9 @@ func (r *KubeforceAgentReconciler) reconcileAgentInfo(ctx context.Context, kfAge
 	if err != nil {
 		return err
 	}
+	if clientset == nil {
+		return nil
+	}
 	v, err := clientset.ServerVersion()
 	if err != nil {
 		return err
@@ -296,7 +298,9 @@ func (r *KubeforceAgentReconciler) reconcileAgentInstallation(ctx context.Contex
 	_, err = agentHelper.GetSshConfig(ctx)
 	if err != nil {
 		conditions.MarkFalse(kfAgent, infrav1.AgentInstalledCondition, infrav1.WaitingForSSHConfigurationReason, clusterv1.ConditionSeverityInfo, err.Error())
-		return ctrl.Result{}, nil
+		return ctrl.Result{
+			RequeueAfter: 10 * time.Second,
+		}, nil
 	}
 	err = agentHelper.Install(ctx)
 	if err != nil {

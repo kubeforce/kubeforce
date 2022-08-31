@@ -3,6 +3,7 @@ label: "KUBEFORCE"
 manager_name: "kubeforce-controller-manager"
 context: "./cluster-api-provider-kubeforce"
 config:
+  label: "KUBEFORCE"
   image: "ghcr.io/kubeforce/cluster-api-kubeforce-controller"
   context: "./cluster-api-provider-kubeforce"
   live_reload_deps:

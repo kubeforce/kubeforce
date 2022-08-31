@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/component-base/metrics"
 )
@@ -83,14 +84,17 @@ type Controller interface {
 }
 
 // NewController creates a Controller for probing.
-func NewController() Controller {
+func NewController(log logr.Logger) Controller {
 	return &controller{
+		log:           log,
 		workers:       make(map[string]*worker),
 		resultManager: NewResultManager(),
 	}
 }
 
 type controller struct {
+	// log is a logger for the probe controller
+	log logr.Logger
 	// Map of active workers for probes
 	workers map[string]*worker
 	// Lock for accessing & mutating workers
@@ -106,10 +110,12 @@ func (m *controller) EnsureProbe(ctx context.Context, probe ProbeHandler, params
 	if oldWorker, ok := m.workers[key]; ok {
 		oldParams := oldWorker.getProbeParams()
 		if !oldParams.Equal(params) {
+			m.log.Info("the probe has been changed params", "probe", key, "oldParams", oldParams, "newParams", params)
 			oldWorker.setProbeParams(params)
 		}
 		return
 	}
+	m.log.Info("a new probe has been created", "probe", key, "params", params)
 	w := newWorker(m, probe, params)
 	m.workers[key] = w
 	go w.run(ctx)

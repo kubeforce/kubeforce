@@ -36,6 +36,9 @@ const (
 	// PlaybookControllerKindLabelName is a group and a kind of the playbook controller.
 	// format: <group>.<kind>
 	PlaybookControllerKindLabelName = "playbook.infrastructure.cluster.x-k8s.io/controller-kind"
+
+	// PlaybookAgentNameLabelName is a name of the agent
+	PlaybookAgentNameLabelName = "playbook.infrastructure.cluster.x-k8s.io/agent"
 )
 
 // PlaybookSpec defines the desired state of Playbook

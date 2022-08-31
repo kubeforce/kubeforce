@@ -118,7 +118,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ClientCache")
 		os.Exit(1)
 	}
-	probeController := prober.NewController()
+	probeController := prober.NewController(logger.WithName("probe.controller"))
 	if err := mgr.Add(probeController); err != nil {
 		os.Exit(1)
 	}
