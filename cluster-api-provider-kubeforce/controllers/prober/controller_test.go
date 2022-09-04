@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func init() {
@@ -75,8 +76,11 @@ func TestAddRemoveProbes(t *testing.T) {
 	ctx := context.Background()
 
 	successProbe := newFakeProbeHandler("success-test", nil)
-
-	c := NewController().(*controller)
+	opts := zap.Options{
+		Development: true,
+	}
+	logger := zap.New(zap.UseFlagOptions(&opts))
+	c := NewController(logger).(*controller)
 	//defer featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.StartupProbe, true)()
 	defer cleanup(t, c)
 	if err := expectProbes(c, nil); err != nil {
@@ -110,7 +114,11 @@ func TestAddRemoveProbes(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	c := NewController().(*controller)
+	opts := zap.Options{
+		Development: true,
+	}
+	logger := zap.New(zap.UseFlagOptions(&opts))
+	c := NewController(logger).(*controller)
 	defer cleanup(t, c)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()

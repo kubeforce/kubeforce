@@ -19,6 +19,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	"time"
 
 	agentctrl "k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
@@ -126,7 +128,32 @@ func patchPlaybook(ctx context.Context, patchHelper *patch.Helper, playbook *inf
 func (r *PlaybookReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&infrav1.Playbook{}).
+		Watches(
+			&source.Kind{Type: &infrav1.KubeforceAgent{}},
+			handler.EnqueueRequestsFromMapFunc(r.KubeforceAgentToPlaybook),
+		).
 		Complete(r)
+}
+
+func (r *PlaybookReconciler) KubeforceAgentToPlaybook(o client.Object) []ctrl.Request {
+	result := []ctrl.Request{}
+	a, ok := o.(*infrav1.KubeforceAgent)
+	if !ok {
+		r.Log.Info(fmt.Sprintf("Expected a KubeforceAgent but got a %T", o))
+		return nil
+	}
+
+	pdLabels := map[string]string{infrav1.PlaybookAgentNameLabelName: a.Name}
+	pdList := &infrav1.PlaybookDeploymentList{}
+	if err := r.Client.List(context.TODO(), pdList, client.InNamespace(a.Namespace), client.MatchingLabels(pdLabels)); err != nil {
+		return nil
+	}
+	for _, m := range pdList.Items {
+		name := client.ObjectKey{Namespace: m.Namespace, Name: m.Name}
+		result = append(result, ctrl.Request{NamespacedName: name})
+	}
+
+	return result
 }
 
 func (r *PlaybookReconciler) GetKubeforceAgent(ctx context.Context, playbook *infrav1.Playbook) (*infrav1.KubeforceAgent, error) {
@@ -186,7 +213,7 @@ func (r *PlaybookReconciler) reconcileNormal(ctx context.Context, playbook *infr
 		conditions.MarkFalse(playbook, infrav1.SynchronizationCondition, infrav1.WaitingForAgentReason, clusterv1.ConditionSeverityError, err.Error())
 		return ctrl.Result{}, err
 	}
-
+	playbook.Labels[infrav1.PlaybookAgentNameLabelName] = kfAgent.Name
 	if r.shouldAdopt(playbook) {
 		playbook.OwnerReferences = capiutil.EnsureOwnerRef(
 			playbook.OwnerReferences,
@@ -202,9 +229,7 @@ func (r *PlaybookReconciler) reconcileNormal(ctx context.Context, playbook *infr
 	if !agent.IsReady(kfAgent) {
 		msg := "agent is not ready"
 		conditions.MarkFalse(playbook, infrav1.SynchronizationCondition, infrav1.WaitingForAgentReason, clusterv1.ConditionSeverityInfo, msg)
-		return ctrl.Result{
-			RequeueAfter: 10 * time.Second,
-		}, nil
+		return ctrl.Result{}, nil
 	}
 
 	agentClient, err := r.AgentClientCache.GetClientSet(ctx, client.ObjectKeyFromObject(kfAgent))

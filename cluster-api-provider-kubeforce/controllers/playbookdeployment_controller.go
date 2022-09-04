@@ -38,7 +38,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util"
 	capiutil "sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -139,23 +138,15 @@ func (r *PlaybookDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error 
 
 func (r *PlaybookDeploymentReconciler) KubeforceAgentToPlaybookDeployments(o client.Object) []ctrl.Request {
 	result := []ctrl.Request{}
-	c, ok := o.(*infrav1.KubeforceAgent)
+	a, ok := o.(*infrav1.KubeforceAgent)
 	if !ok {
 		r.Log.Info(fmt.Sprintf("Expected a KubeforceAgent but got a %T", o))
 		return nil
 	}
 
-	cluster, err := util.GetOwnerCluster(context.TODO(), r.Client, c.ObjectMeta)
-	switch {
-	case apierrors.IsNotFound(err) || cluster == nil:
-		return result
-	case err != nil:
-		return result
-	}
-
-	pdLabels := map[string]string{clusterv1.ClusterLabelName: cluster.Name}
+	pdLabels := map[string]string{infrav1.PlaybookAgentNameLabelName: a.Name}
 	pdList := &infrav1.PlaybookDeploymentList{}
-	if err := r.Client.List(context.TODO(), pdList, client.InNamespace(c.Namespace), client.MatchingLabels(pdLabels)); err != nil {
+	if err := r.Client.List(context.TODO(), pdList, client.InNamespace(a.Namespace), client.MatchingLabels(pdLabels)); err != nil {
 		return nil
 	}
 	for _, m := range pdList.Items {
@@ -224,7 +215,7 @@ func (r *PlaybookDeploymentReconciler) reconcileNormal(ctx context.Context, pd *
 		conditions.MarkFalse(pd, infrav1.SynchronizationCondition, infrav1.WaitingForAgentReason, clusterv1.ConditionSeverityError, err.Error())
 		return ctrl.Result{}, err
 	}
-
+	pd.Labels[infrav1.PlaybookAgentNameLabelName] = kfAgent.Name
 	if r.shouldAdopt(pd) {
 		pd.OwnerReferences = capiutil.EnsureOwnerRef(pd.OwnerReferences,
 			*metav1.NewControllerRef(kfAgent, infrav1.GroupVersion.WithKind("KubeforceAgent")),

@@ -40,6 +40,7 @@
       with_items:
         - "/etc/containerd/"
         - "/var/lib/containerd/"
+        - "/var/lib/kubelet/"
         - "/usr/local/sbin/runc"
         - "/usr/local/bin/crictl"
         - "/usr/local/bin/kubectl"

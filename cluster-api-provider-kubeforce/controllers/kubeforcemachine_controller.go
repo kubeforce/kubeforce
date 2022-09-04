@@ -477,17 +477,22 @@ func (r *KubeforceMachineReconciler) reconcileCleaner(ctx context.Context, kfMac
 		conditions.MarkFalse(kfMachine, infrav1.CleanersCompletedCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, err.Error())
 		return false, err
 	}
-	if !agent.IsReady(kfAgent) {
-		return true, nil
-	}
-
-	ready, err := r.reconcilePlaybooks(ctx, infrav1.CleanersCompletedCondition, kfMachine, kfAgent, r.cleanerGenerators())
-	if err != nil {
-		return false, err
-	}
-	if !ready {
+	// wait 20 seconds for the agent to be ready
+	if !agent.IsReady(kfAgent) && time.Since(kfMachine.DeletionTimestamp.Time) < time.Second*20 {
+		conditions.MarkFalse(kfMachine, infrav1.CleanersCompletedCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, "Wait for agent ready")
 		return false, nil
 	}
+
+	if agent.IsReady(kfAgent) {
+		ready, err := r.reconcilePlaybooks(ctx, infrav1.CleanersCompletedCondition, kfMachine, kfAgent, r.cleanerGenerators())
+		if err != nil {
+			return false, err
+		}
+		if !ready {
+			return false, nil
+		}
+	}
+
 	delete(kfAgent.Labels, infrav1.AgentMachineLabel)
 	// use optimistic concurrent update here
 	if err := r.Client.Update(ctx, kfAgent); err != nil {
@@ -616,6 +621,7 @@ func (r *KubeforceMachineReconciler) reconcilePlaybook(ctx context.Context, kfMa
 func playbookLabelsByMachine(kfMachine *infrav1.KubeforceMachine, role string) map[string]string {
 	return map[string]string{
 		infrav1.PlaybookRoleLabelName:           role,
+		infrav1.PlaybookAgentNameLabelName:      kfMachine.Spec.AgentRef.Name,
 		infrav1.PlaybookControllerNameLabelName: kfMachine.Name,
 		infrav1.PlaybookControllerKindLabelName: infrav1.GroupVersion.Group + ".KubeforceMachine",
 	}
@@ -831,6 +837,7 @@ func (r *KubeforceMachineReconciler) createPlaybookGenerators(config kubeadm.Con
 			vars := make(map[string]interface{})
 			vars["apiServers"] = r.getAPIServerEndpoints(kfMachine, kubeforceCluster)
 			vars["apiServerPort"] = "6443"
+			vars["targetArch"] = kfAgent.Spec.System.Arch
 			return assets.GetPlaybook(assets.PlaybookLoadbalancer, vars)
 		},
 	})

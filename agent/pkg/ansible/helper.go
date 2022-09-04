@@ -10,6 +10,8 @@ import (
 
 const (
 	ansibleCmd = "ansible"
+	pipCmd     = "pip3"
+	pipPackage = "python3-pip"
 )
 
 // GetHelper returns an ansible helper
@@ -62,16 +64,19 @@ func (h *helper) installAnsible(ctx context.Context) error {
 	if err := pkgManager.Update(ctx); err != nil {
 		return err
 	}
-	if isCommandAvailable(ctx, "pip") {
-		if err := pkgManager.Install(ctx, "python-pip"); err != nil {
+	if !isCommandAvailable(ctx, pipCmd) {
+		if err := pkgManager.Install(ctx, pipPackage); err != nil {
 			return err
 		}
 	}
-	if err := runCmd(ctx, "pip", "--version"); err != nil {
+	if err := runCmd(ctx, pipCmd, "--version"); err != nil {
 		return err
 	}
-	if err := runCmd(ctx, "pip", "install", "ansible"); err != nil {
+	if err := runCmd(ctx, pipCmd, "install", "ansible"); err != nil {
 		return err
 	}
-	return runCmd(ctx, ansibleCmd, "--version")
+	if err := runCmd(ctx, ansibleCmd, "--version"); err != nil {
+		return errors.Wrap(err, "ansible was installed incorrectly")
+	}
+	return nil
 }
