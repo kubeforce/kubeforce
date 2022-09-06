@@ -16,11 +16,37 @@
       with_items: "{{ cleanup.files }}"
       ignore_errors: true
 
-    - shell: "crictl rm -f $(crictl ps -q)"
+    - name: Revert all changes made on this host by 'kubeadm init' or 'kubeadm join'
+      shell: "kubeadm reset --force"
       ignore_errors: true
 
     - name: Populate service facts
       ansible.builtin.service_facts:
+
+    - name: Stop kubelet service
+      service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+      when: "item|string in ansible_facts.services"
+      with_items:
+        - kubelet.service
+
+    - name: Stopping all pods
+      shell: "crictl stopp $(crictl pods -q)"
+      ignore_errors: true
+
+    - name: Removing all network namespace
+      shell: "ip netns list | cut -d' ' -f 1 | xargs -n1 ip netns delete"
+      ignore_errors: true
+
+    - name: Removing all pods
+      shell: "crictl rmp --force --all"
+      ignore_errors: true
+
+    - name: Removing all containers
+      shell: "crictl rm -f $(crictl ps -q)"
+      ignore_errors: true
 
     - name: Stop services, if not started
       service:
@@ -50,5 +76,5 @@
         - "/etc/systemd/system/kubelet.service.d/"
         - "/etc/kubernetes/"
         - "/etc/traefik/"
-        - "/var/lib/etcd"
+        - "/var/lib/etcd/"
 

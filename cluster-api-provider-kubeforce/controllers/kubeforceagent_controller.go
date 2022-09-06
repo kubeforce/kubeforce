@@ -199,6 +199,7 @@ func (r *KubeforceAgentReconciler) reconcileDelete(ctx context.Context, kfAgent 
 				return ctrl.Result{}, err
 			}
 		}
+		r.ProbeController.RemoveProbe(client.ObjectKeyFromObject(kfAgent).String())
 		controllerutil.RemoveFinalizer(kfAgent, infrav1.AgentFinalizer)
 	}
 	return ctrl.Result{}, nil
@@ -262,9 +263,6 @@ func (r *KubeforceAgentReconciler) reconcileAgentInfo(ctx context.Context, kfAge
 	clientset, err := r.AgentClientCache.GetClientSet(ctx, client.ObjectKeyFromObject(kfAgent))
 	if err != nil {
 		return err
-	}
-	if clientset == nil {
-		return nil
 	}
 	v, err := clientset.ServerVersion()
 	if err != nil {

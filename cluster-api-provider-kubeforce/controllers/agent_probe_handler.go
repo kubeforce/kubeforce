@@ -36,9 +36,6 @@ func (h *agentProbeHandler) DoProbe(ctx context.Context) (bool, error) {
 	if err != nil {
 		return true, err
 	}
-	if clientset == nil {
-		return false, nil
-	}
 	_, err = clientset.Discovery().ServerVersion()
 	if err != nil {
 		return true, err
