@@ -19,11 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 	"time"
-
-	agentctrl "k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -32,6 +28,7 @@ import (
 	agentclient "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
 	agentconditions "k3f.io/kubeforce/agent/pkg/util/conditions"
 	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
+	agentctrl "k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
 	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/agent"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,6 +41,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // PlaybookReconciler reconciles a Playbook object
@@ -144,7 +143,7 @@ func (r *PlaybookReconciler) KubeforceAgentToPlaybook(o client.Object) []ctrl.Re
 	}
 
 	pdLabels := map[string]string{infrav1.PlaybookAgentNameLabelName: a.Name}
-	pdList := &infrav1.PlaybookDeploymentList{}
+	pdList := &infrav1.PlaybookList{}
 	if err := r.Client.List(context.TODO(), pdList, client.InNamespace(a.Namespace), client.MatchingLabels(pdLabels)); err != nil {
 		return nil
 	}
@@ -221,7 +220,7 @@ func (r *PlaybookReconciler) reconcileNormal(ctx context.Context, playbook *infr
 		)
 	}
 	// Return early if the object or agent is paused.
-	if annotations.HasPausedAnnotation(kfAgent) || annotations.HasPausedAnnotation(playbook) {
+	if annotations.HasPaused(kfAgent) || annotations.HasPaused(playbook) {
 		log.Info("Reconciliation is paused for this object")
 		return ctrl.Result{}, nil
 	}

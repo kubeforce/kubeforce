@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"sync"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	agentclient "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
@@ -73,9 +71,6 @@ func (c *ClientCache) getClientHolder(ctx context.Context, agent client.ObjectKe
 	}
 
 	h, err := c.newClientHolder(ctx, agent)
-	if h == nil {
-		return nil, nil
-	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "error creating client and cache for agent %q", agent)
 	}
@@ -135,9 +130,6 @@ func (c *ClientCache) calcChecksum(host string, keys *agent.Keys) (string, error
 func (c *ClientCache) newClientHolder(ctx context.Context, agentKey client.ObjectKey) (*clientHolder, error) {
 	kfAgent := &infrav1.KubeforceAgent{}
 	if err := c.client.Get(ctx, agentKey, kfAgent); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil, nil
-		}
 		return nil, errors.Wrapf(err, "unable to get agent %q", agentKey)
 	}
 

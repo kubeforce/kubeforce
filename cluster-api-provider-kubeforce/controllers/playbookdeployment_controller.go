@@ -222,7 +222,7 @@ func (r *PlaybookDeploymentReconciler) reconcileNormal(ctx context.Context, pd *
 		)
 	}
 	// Return early if the object or agent is paused.
-	if annotations.HasPausedAnnotation(kfAgent) || annotations.HasPausedAnnotation(pd) {
+	if annotations.HasPaused(kfAgent) || annotations.HasPaused(pd) {
 		log.Info("Reconciliation is paused for this object")
 		return ctrl.Result{}, nil
 	}

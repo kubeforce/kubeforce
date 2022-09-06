@@ -44,8 +44,9 @@ func (i *Initializer) Start(ctx context.Context) error {
 
 func (i *Initializer) init(ctx context.Context) error {
 	if err := i.ensureGitHubRepo(ctx); err != nil {
-		return err
+		return errors.Wrapf(err, "unable to initialize 'github' HTTPRepository")
 	}
+	i.Log.Info("all default k8s resources have been initialized")
 	return nil
 }
 
@@ -104,5 +105,7 @@ func (i *Initializer) defaultGitHubRepo(r *infrav1.HTTPRepository) {
 	r.Name = githubRepoName
 	r.Namespace = githubRepoNamespace
 	r.Spec.URL = "https://github.com/kubeforce/kubeforce/releases/download/"
-	r.Spec.Timeout = &metav1.Duration{Duration: 90 * time.Second}
+	if r.Spec.Timeout == nil {
+		r.Spec.Timeout = &metav1.Duration{Duration: 90 * time.Second}
+	}
 }
