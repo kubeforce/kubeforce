@@ -11,8 +11,8 @@ RUN apt-get update && \
     dbus systemd systemd-cron rsyslog iptables iproute2 ebtables
 
 RUN apt-get install -y python3 python3-apt sudo bash ca-certificates kmod
-RUN apt-get install -y openssh-server sudo pip
-RUN pip install ansible
+RUN apt-get install -y openssh-server sudo python3-pip
+RUN pip3 install ansible
 RUN apt-get install -y curl htop iotop lsof ltrace net-tools strace tcpdump vim wget traceroute
 
 RUN useradd -rm -d /home/ubuntu -s /bin/bash -u 1000 test

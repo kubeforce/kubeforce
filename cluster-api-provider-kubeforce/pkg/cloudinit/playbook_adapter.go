@@ -119,7 +119,6 @@ func (a *AnsibleAdapter) writeFileToTask(f WriteFile) (*ansible.CopyTask, error)
 }
 
 func (a *AnsibleAdapter) cmdFileToTask(c Cmd) ansible.TaskModule {
-	c = a.hackKubeadmIgnoreErrors(c)
 	if !c.IsList {
 		return ansible.ShellTask{
 			Params: ansible.ShellTaskParams{
@@ -132,36 +131,4 @@ func (a *AnsibleAdapter) cmdFileToTask(c Cmd) ansible.TaskModule {
 			Argv: c.List,
 		},
 	}
-}
-
-func (a *AnsibleAdapter) hackKubeadmIgnoreErrors(c Cmd) Cmd {
-	fixInitConfig := false
-	if a.kubeadmCfg.InitConfiguration != nil &&
-		a.kubeadmCfg.InitConfiguration.NodeRegistration.KubeletExtraArgs != nil &&
-		a.kubeadmCfg.InitConfiguration.NodeRegistration.KubeletExtraArgs["fail-swap-on"] == "false" {
-		fixInitConfig = true
-	}
-	fixJoinConfig := false
-	if a.kubeadmCfg.JoinConfiguration != nil &&
-		a.kubeadmCfg.JoinConfiguration.NodeRegistration.KubeletExtraArgs != nil &&
-		a.kubeadmCfg.JoinConfiguration.NodeRegistration.KubeletExtraArgs["fail-swap-on"] == "false" {
-		fixJoinConfig = true
-	}
-	if c.IsList && len(c.List) >= 1 {
-		if c.List[0] == "kubeadm" && c.List[1] == "init" && fixInitConfig {
-			c.List = append(c.List, "--ignore-preflight-errors=Swap")
-		}
-		if c.List[0] == "kubeadm" && c.List[1] == "join" && fixJoinConfig {
-			c.List = append(c.List, "--ignore-preflight-errors=Swap")
-		}
-	}
-	// case kubeadm commands are defined as a string
-	if !c.IsList && fixInitConfig {
-		c.Cmd = strings.Replace(c.Cmd, "kubeadm init", "kubeadm init --ignore-preflight-errors=Swap", 1)
-	}
-	if !c.IsList && fixJoinConfig {
-		c.Cmd = strings.Replace(c.Cmd, "kubeadm join", "kubeadm join --ignore-preflight-errors=Swap", 1)
-	}
-
-	return c
 }
