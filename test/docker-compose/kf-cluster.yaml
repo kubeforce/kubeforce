@@ -224,6 +224,9 @@ spec:
           fail-swap-on: "false"
           cgroup-driver: cgroupfs
           eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
+        ignorePreflightErrors:
+          - Swap
+          - SystemVerification
     joinConfiguration:
       nodeRegistration:
         criSocket: /var/run/containerd/containerd.sock
@@ -231,6 +234,9 @@ spec:
           fail-swap-on: "false"
           cgroup-driver: cgroupfs
           eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
+        ignorePreflightErrors:
+          - Swap
+          - SystemVerification
   machineTemplate:
     infrastructureRef:
       apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
@@ -334,6 +340,9 @@ spec:
             fail-swap-on: "false"
             cgroup-driver: cgroupfs
             eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
+          ignorePreflightErrors:
+            - Swap
+            - SystemVerification
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachineDeployment
