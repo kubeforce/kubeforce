@@ -3,6 +3,8 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: selfsigned-issuer
+  labels:
+    clusterctl.cluster.x-k8s.io/move: ""
 spec:
   selfSigned: {}
 ---
@@ -10,6 +12,8 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: secret-ssh-auth
+  labels:
+    clusterctl.cluster.x-k8s.io/move: ""
 data:
   # ssh-password: test
   ssh-password: dGVzdA==
@@ -20,6 +24,7 @@ metadata:
   name: agent-auth-ca
   labels:
     component: agent-auth-ca-issuer
+    clusterctl.cluster.x-k8s.io/move-hierarchy: ""
 spec:
   secretName: agent-auth-ca
   commonName: "Root CA"
@@ -39,6 +44,9 @@ spec:
   issuerRef:
     name: selfsigned-issuer
     kind: Issuer
+  secretTemplate:
+    labels:
+      clusterctl.cluster.x-k8s.io/move: ""
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
@@ -46,6 +54,7 @@ metadata:
   name: agent-auth-ca-issuer
   labels:
     component: agent-auth-ca-issuer
+    clusterctl.cluster.x-k8s.io/move: ""
 spec:
   ca:
     secretName: agent-auth-ca
@@ -54,6 +63,8 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: agent-client
+  labels:
+    clusterctl.cluster.x-k8s.io/move-hierarchy: ""
 spec:
   secretName: agent-client-tls
   commonName: "agent client"
@@ -73,6 +84,9 @@ spec:
   issuerRef:
     name: agent-auth-ca-issuer
     kind: Issuer
+  secretTemplate:
+    labels:
+      clusterctl.cluster.x-k8s.io/move: ""
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HTTPRepository
