@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -44,8 +43,11 @@ const (
 // +kubebuilder:printcolumn:name="ExternalIP",type="string",JSONPath=".spec.addresses.externalIP",description="External IP address of KubeforceAgent"
 // +kubebuilder:printcolumn:name="ExternalDNS",type="string",JSONPath=".spec.addresses.externalDNS",description="External DNS address of KubeforceAgent"
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="KubeforceAgent phase"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description="Ready status"
 // +kubebuilder:printcolumn:name="Health",type="string",JSONPath=".status.conditions[?(@.type==\"Healthy\")].status",description="Health status"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of KubeforceAgent"
+// +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.agentInfo.version",description="Installed agent version"
+// +kubebuilder:printcolumn:name="Platform",type="string",priority=1,JSONPath=".status.agentInfo.platform",description="Platform architecture information"
 
 // KubeforceAgent is the Schema for the kubeforceagents API
 type KubeforceAgent struct {
@@ -101,16 +103,90 @@ type AgentSource struct {
 
 // AgentConfigSpec is an agent configuration
 type AgentConfigSpec struct {
-	// CertIssuerRef is a reference to the issuer for agent certificates.
-	// If the `kind` field is not set, or set to `Issuer`, an Issuer resource
-	// with the given name in the same namespace as the KubeforceCluster will be used.
-	// If the `kind` field is set to `ClusterIssuer`, a ClusterIssuer with the
-	// provided name will be used.
-	// The `name` field in this stanza is required at all times.
-	CertIssuerRef corev1.TypedLocalObjectReference `json:"certIssuerRef"`
+	// CertTemplate is a template for agent certificate.
+	CertTemplate CertificateTemplate `json:"certTemplate"`
 	// Authentication specifies how requests to the Agent's server are authenticated
 	// +optional
 	Authentication AgentAuthentication `json:"authentication"`
+}
+
+// CertificateTemplate is a template for Certificate object
+type CertificateTemplate struct {
+	// IssuerRef is a reference to the issuer for this certificate.
+	IssuerRef CertObjectReference `json:"issuerRef"`
+
+	// The requested 'duration' (i.e. lifetime) of the Certificate.
+	// +optional
+	Duration *metav1.Duration `json:"duration,omitempty"`
+
+	// How long before the currently issued certificate's expiry
+	// cert-manager should renew the certificate.
+	// +optional
+	RenewBefore *metav1.Duration `json:"renewBefore,omitempty"`
+
+	// DNSNames is a list of DNS subjectAltNames to be set on the Certificate.
+	// +optional
+	DNSNames []string `json:"dnsNames,omitempty"`
+
+	// IPAddresses is a list of IP address subjectAltNames to be set on the Certificate.
+	// +optional
+	IPAddresses []string `json:"ipAddresses,omitempty"`
+
+	// Options to control private keys used for the Certificate.
+	// +optional
+	PrivateKey *CertificatePrivateKey `json:"privateKey,omitempty"`
+}
+
+// CertObjectReference is a reference to an object with a given name, kind and group.
+type CertObjectReference struct {
+	// Name of the resource being referred to.
+	Name string `json:"name"`
+	// Kind of the resource being referred to.
+	// +optional
+	Kind string `json:"kind,omitempty"`
+	// Group of the resource being referred to.
+	// +optional
+	Group string `json:"group,omitempty"`
+}
+
+// CertificatePrivateKey contains configuration options for private keys
+// used by the Certificate controller.
+// This allows control of how private keys are rotated.
+type CertificatePrivateKey struct {
+	// RotationPolicy controls how private keys should be regenerated when a
+	// re-issuance is being processed.
+	// +optional
+	// +kubebuilder:validation:Enum=Never;Always
+	RotationPolicy string `json:"rotationPolicy,omitempty"`
+
+	// The private key cryptography standards (PKCS) encoding for this
+	// certificate's private key to be encoded in.
+	// If provided, allowed values are `PKCS1` and `PKCS8` standing for PKCS#1
+	// and PKCS#8, respectively.
+	// Defaults to `PKCS1` if not specified.
+	// +optional
+	// +kubebuilder:validation:Enum=PKCS1;PKCS8
+	Encoding string `json:"encoding,omitempty"`
+
+	// Algorithm is the private key algorithm of the corresponding private key
+	// for this certificate. If provided, allowed values are either `RSA`,`Ed25519` or `ECDSA`
+	// If `algorithm` is specified and `size` is not provided,
+	// key size of 256 will be used for `ECDSA` key algorithm and
+	// key size of 2048 will be used for `RSA` key algorithm.
+	// key size is ignored when using the `Ed25519` key algorithm.
+	// +optional
+	// +kubebuilder:validation:Enum=RSA;ECDSA;Ed25519
+	Algorithm string `json:"algorithm,omitempty"`
+
+	// Size is the key bit size of the corresponding private key for this certificate.
+	// If `algorithm` is set to `RSA`, valid values are `2048`, `4096` or `8192`,
+	// and will default to `2048` if not specified.
+	// If `algorithm` is set to `ECDSA`, valid values are `256`, `384` or `521`,
+	// and will default to `256` if not specified.
+	// If `algorithm` is set to `Ed25519`, Size is ignored.
+	// No other values are allowed.
+	// +optional
+	Size int `json:"size,omitempty"`
 }
 
 // AgentAuthentication is configuration for agent authrntication

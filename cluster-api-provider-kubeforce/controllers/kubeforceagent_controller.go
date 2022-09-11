@@ -320,11 +320,9 @@ func (r *KubeforceAgentReconciler) reconcileAgentInstallation(ctx context.Contex
 }
 
 func (r *KubeforceAgentReconciler) reconcileTLSCert(ctx context.Context, kfAgent *infrav1.KubeforceAgent) (ctrl.Result, error) {
-	log := ctrl.LoggerFrom(ctx)
-
-	if kfAgent.Spec.Config.CertIssuerRef.Name == "" || kfAgent.Spec.Config.CertIssuerRef.Kind == "" {
-		log.Info("Waiting for the certification issuer reference to be initialized")
-		conditions.MarkFalse(kfAgent, infrav1.AgentTLSCondition, infrav1.WaitingForCertIssuerRefReason, clusterv1.ConditionSeverityError, "")
+	if kfAgent.Spec.Config.CertTemplate.IssuerRef.Name == "" {
+		msg := "Waiting for the certification issuer reference to be specified"
+		conditions.MarkFalse(kfAgent, infrav1.AgentTLSCondition, infrav1.WaitingForCertIssuerRefReason, clusterv1.ConditionSeverityError, msg)
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
@@ -332,18 +330,18 @@ func (r *KubeforceAgentReconciler) reconcileTLSCert(ctx context.Context, kfAgent
 
 	cert := &certv1.Certificate{}
 	controllerOwnerRef := *metav1.NewControllerRef(kfAgent, infrav1.GroupVersion.WithKind("KubeforceAgent"))
-	// TODO: certificate must be reissued if CertIssuerRef is changed
 	if err := r.Client.Get(ctx, certKey, cert); err != nil {
-		conditions.MarkFalse(kfAgent, infrav1.AgentTLSCondition, infrav1.WaitingForCertIssueReason, clusterv1.ConditionSeverityInfo, "")
 		if apierrors.IsNotFound(err) {
 			createErr := r.createAgentServCertificate(ctx, certKey, kfAgent, controllerOwnerRef)
 			if createErr != nil {
+				conditions.MarkFalse(kfAgent, infrav1.AgentTLSCondition, infrav1.WaitingForCertIssueReason, clusterv1.ConditionSeverityError, createErr.Error())
 				return ctrl.Result{}, createErr
 			}
 			return ctrl.Result{
 				RequeueAfter: 5 * time.Second,
 			}, nil
 		}
+		conditions.MarkFalse(kfAgent, infrav1.AgentTLSCondition, infrav1.WaitingForCertIssueReason, clusterv1.ConditionSeverityError, err.Error())
 		return ctrl.Result{}, err
 	}
 	cond := certutil.GetCertificateCondition(cert, cmapi.CertificateConditionReady)
@@ -374,6 +372,10 @@ func (r *KubeforceAgentReconciler) shouldAdopt(s *corev1.Secret) bool {
 }
 
 func (r *KubeforceAgentReconciler) createAgentServCertificate(ctx context.Context, certKey client.ObjectKey, agent *infrav1.KubeforceAgent, owner metav1.OwnerReference) error {
+	dnsNames := agent.Spec.Config.CertTemplate.DNSNames
+	dnsNames = append(dnsNames, stringutil.Filter(stringutil.IsNotEmpty, agent.Spec.Addresses.ExternalDNS, agent.Spec.Addresses.InternalDNS)...)
+	ipAddresses := agent.Spec.Config.CertTemplate.IPAddresses
+	ipAddresses = append(ipAddresses, stringutil.Filter(stringutil.IsNotEmpty, agent.Spec.Addresses.ExternalIP, agent.Spec.Addresses.InternalIP)...)
 	cert := &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      certKey.Name,
@@ -383,23 +385,30 @@ func (r *KubeforceAgentReconciler) createAgentServCertificate(ctx context.Contex
 			},
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: certKey.Name,
-			Duration: &metav1.Duration{
-				Duration: time.Hour * 24 * 365,
-			},
-			DNSNames:    stringutil.Filter(stringutil.IsNotEmpty, agent.Spec.Addresses.ExternalDNS, agent.Spec.Addresses.InternalDNS),
-			IPAddresses: stringutil.Filter(stringutil.IsNotEmpty, agent.Spec.Addresses.ExternalIP, agent.Spec.Addresses.InternalIP),
+			CommonName:  certKey.Name,
+			Duration:    agent.Spec.Config.CertTemplate.Duration,
+			RenewBefore: agent.Spec.Config.CertTemplate.RenewBefore,
+			DNSNames:    dnsNames,
+			IPAddresses: ipAddresses,
 			SecretName:  certKey.Name,
 			IssuerRef: cmmeta.ObjectReference{
-				Name:  agent.Spec.Config.CertIssuerRef.Name,
-				Kind:  agent.Spec.Config.CertIssuerRef.Kind,
-				Group: certv1.SchemeGroupVersion.Group,
+				Name:  agent.Spec.Config.CertTemplate.IssuerRef.Name,
+				Kind:  agent.Spec.Config.CertTemplate.IssuerRef.Kind,
+				Group: agent.Spec.Config.CertTemplate.IssuerRef.Group,
 			},
 		},
 	}
+	if agent.Spec.Config.CertTemplate.PrivateKey != nil {
+		cert.Spec.PrivateKey = &certv1.CertificatePrivateKey{
+			RotationPolicy: certv1.PrivateKeyRotationPolicy(agent.Spec.Config.CertTemplate.PrivateKey.RotationPolicy),
+			Encoding:       certv1.PrivateKeyEncoding(agent.Spec.Config.CertTemplate.PrivateKey.Encoding),
+			Algorithm:      certv1.PrivateKeyAlgorithm(agent.Spec.Config.CertTemplate.PrivateKey.Algorithm),
+			Size:           agent.Spec.Config.CertTemplate.PrivateKey.Size,
+		}
+	}
 	err := r.Client.Create(ctx, cert)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to create certificate")
 	}
 	return nil
 }

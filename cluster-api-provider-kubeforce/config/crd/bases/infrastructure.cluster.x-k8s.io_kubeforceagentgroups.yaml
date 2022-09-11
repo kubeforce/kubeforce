@@ -132,33 +132,103 @@ spec:
                                 - clientSecret
                                 type: object
                             type: object
-                          certIssuerRef:
-                            description: CertIssuerRef is a reference to the issuer
-                              for agent certificates. If the `kind` field is not set,
-                              or set to `Issuer`, an Issuer resource with the given
-                              name in the same namespace as the KubeforceCluster will
-                              be used. If the `kind` field is set to `ClusterIssuer`,
-                              a ClusterIssuer with the provided name will be used.
-                              The `name` field in this stanza is required at all times.
+                          certTemplate:
+                            description: CertTemplate is a template for agent certificate.
                             properties:
-                              apiGroup:
-                                description: APIGroup is the group for the resource
-                                  being referenced. If APIGroup is not specified,
-                                  the specified Kind must be in the core API group.
-                                  For any other third-party types, APIGroup is required.
+                              dnsNames:
+                                description: DNSNames is a list of DNS subjectAltNames
+                                  to be set on the Certificate.
+                                items:
+                                  type: string
+                                type: array
+                              duration:
+                                description: The requested 'duration' (i.e. lifetime)
+                                  of the Certificate.
                                 type: string
-                              kind:
-                                description: Kind is the type of resource being referenced
-                                type: string
-                              name:
-                                description: Name is the name of resource being referenced
+                              ipAddresses:
+                                description: IPAddresses is a list of IP address subjectAltNames
+                                  to be set on the Certificate.
+                                items:
+                                  type: string
+                                type: array
+                              issuerRef:
+                                description: IssuerRef is a reference to the issuer
+                                  for this certificate.
+                                properties:
+                                  group:
+                                    description: Group of the resource being referred
+                                      to.
+                                    type: string
+                                  kind:
+                                    description: Kind of the resource being referred
+                                      to.
+                                    type: string
+                                  name:
+                                    description: Name of the resource being referred
+                                      to.
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              privateKey:
+                                description: Options to control private keys used
+                                  for the Certificate.
+                                properties:
+                                  algorithm:
+                                    description: Algorithm is the private key algorithm
+                                      of the corresponding private key for this certificate.
+                                      If provided, allowed values are either `RSA`,`Ed25519`
+                                      or `ECDSA` If `algorithm` is specified and `size`
+                                      is not provided, key size of 256 will be used
+                                      for `ECDSA` key algorithm and key size of 2048
+                                      will be used for `RSA` key algorithm. key size
+                                      is ignored when using the `Ed25519` key algorithm.
+                                    enum:
+                                    - RSA
+                                    - ECDSA
+                                    - Ed25519
+                                    type: string
+                                  encoding:
+                                    description: The private key cryptography standards
+                                      (PKCS) encoding for this certificate's private
+                                      key to be encoded in. If provided, allowed values
+                                      are `PKCS1` and `PKCS8` standing for PKCS#1
+                                      and PKCS#8, respectively. Defaults to `PKCS1`
+                                      if not specified.
+                                    enum:
+                                    - PKCS1
+                                    - PKCS8
+                                    type: string
+                                  rotationPolicy:
+                                    description: RotationPolicy controls how private
+                                      keys should be regenerated when a re-issuance
+                                      is being processed.
+                                    enum:
+                                    - Never
+                                    - Always
+                                    type: string
+                                  size:
+                                    description: Size is the key bit size of the corresponding
+                                      private key for this certificate. If `algorithm`
+                                      is set to `RSA`, valid values are `2048`, `4096`
+                                      or `8192`, and will default to `2048` if not
+                                      specified. If `algorithm` is set to `ECDSA`,
+                                      valid values are `256`, `384` or `521`, and
+                                      will default to `256` if not specified. If `algorithm`
+                                      is set to `Ed25519`, Size is ignored. No other
+                                      values are allowed.
+                                    type: integer
+                                type: object
+                              renewBefore:
+                                description: How long before the currently issued
+                                  certificate's expiry cert-manager should renew the
+                                  certificate.
                                 type: string
                             required:
-                            - kind
-                            - name
+                            - issuerRef
                             type: object
                         required:
-                        - certIssuerRef
+                        - certTemplate
                         type: object
                       installed:
                         description: Installed is true when the agent has been installed

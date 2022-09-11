@@ -73,7 +73,7 @@ func newWorker(m *controller, probe ProbeHandler, probeParams ProbeParams) *work
 
 // run periodically probes the container.
 func (w *worker) run(ctx context.Context) {
-	w.probeController.log.Info("the probe worker has been started", "key", w.probe.GetKey())
+	w.probeController.log.Info("the probe worker has been started", "key", w.probe.GetKey(), "params", w.probeParams)
 
 	// If controller restarted the probes could be started in rapid succession.
 	// Let the worker wait for a random portion of tickerPeriod before probing.
