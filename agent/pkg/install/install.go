@@ -11,6 +11,7 @@ import (
 
 	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/pkg/errors"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -20,6 +21,9 @@ var (
 
 // Install installs a agent as the systemd service and runs it
 func Install(ctx context.Context, cfgFile string) error {
+	if err := stopService(ctx); err != nil {
+		return err
+	}
 	if err := copyBinary(); err != nil {
 		return err
 	}
@@ -35,7 +39,7 @@ func Install(ctx context.Context, cfgFile string) error {
 func copyBinary() error {
 	exPath, err := os.Executable()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	if err := os.MkdirAll(filepath.Dir(agentPath), 0755); err != nil {
 		return err
@@ -62,6 +66,39 @@ func copyConfig(cfgFile string) error {
 	if err := os.Chmod(configPath, 0600); err != nil {
 		return err
 	}
+	return nil
+}
+
+func stopService(ctx context.Context) error {
+	conn, err := dbus.NewWithContext(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to connect to dbus")
+	}
+	defer conn.Close()
+
+	unitStatuses, err := conn.ListUnitsByNamesContext(ctx, []string{serviceName})
+	if err != nil {
+		return errors.Wrap(err, "unable to get a systemd units")
+	}
+	if len(unitStatuses) == 0 {
+		return errors.Errorf("unable to get status for systemd unit %s", serviceName)
+	}
+	unitStatus := unitStatuses[0]
+	needStop := false
+	if unitStatus.ActiveState == "active" {
+		needStop = true
+	}
+	if !needStop {
+		return nil
+	}
+	responseCh := make(chan string)
+	defer close(responseCh)
+
+	if _, err := conn.StopUnitContext(ctx, serviceName, "replace", responseCh); err != nil {
+		return errors.Wrapf(err, "unable to stop unit %s", serviceName)
+	}
+	<-responseCh
+	klog.FromContext(ctx).Info("service has been stopped", "unit", serviceName)
 	return nil
 }
 

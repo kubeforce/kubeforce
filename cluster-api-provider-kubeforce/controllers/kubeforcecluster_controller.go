@@ -328,7 +328,8 @@ func (r *KubeforceClusterReconciler) KubeforceMachineToKubeforceCluster(o client
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *KubeforceClusterReconciler) SetupWithManager(logger logr.Logger, mgr ctrl.Manager, options controller.Options) error {
+func (r *KubeforceClusterReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
+	logger := ctrl.LoggerFrom(ctx)
 	c, err := ctrl.NewControllerManagedBy(mgr).
 		For(&infrav1.KubeforceCluster{}).
 		WithOptions(options).
@@ -340,7 +341,7 @@ func (r *KubeforceClusterReconciler) SetupWithManager(logger logr.Logger, mgr ct
 	}
 	err = c.Watch(
 		&source.Kind{Type: &clusterv1.Cluster{}},
-		handler.EnqueueRequestsFromMapFunc(util.ClusterToInfrastructureMapFunc(infrav1.GroupVersion.WithKind("KubeforceCluster"))),
+		handler.EnqueueRequestsFromMapFunc(util.ClusterToInfrastructureMapFunc(ctx, infrav1.GroupVersion.WithKind("KubeforceCluster"), mgr.GetClient(), &infrav1.KubeforceCluster{})),
 		predicates.ClusterUnpaused(logger),
 	)
 	if err != nil {

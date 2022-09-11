@@ -34,6 +34,10 @@ var startTime = time.Now()
 type SysInfoREST struct {
 }
 
+// Destroy cleans up its resources on shutdown.
+func (r *SysInfoREST) Destroy() {
+}
+
 var _ rest.Getter = &SysInfoREST{}
 var _ rest.Scoper = &SysInfoREST{}
 
