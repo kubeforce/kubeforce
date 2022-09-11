@@ -20,23 +20,19 @@ import (
 	"flag"
 	"os"
 
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/repository"
-
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/prober"
-
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
-
-	"sigs.k8s.io/cluster-api/controllers/remote"
-
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
 	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/prober"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/repository"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	kubeadmv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
+	"sigs.k8s.io/cluster-api/controllers/remote"
 	expclusterv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -105,6 +101,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	ctx := ctrl.SetupSignalHandler()
+
 	agentClientCache, err := agent.NewClientCache(mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to create agent client cache")
@@ -150,7 +148,7 @@ func main() {
 	if err = (&controllers.KubeforceClusterReconciler{
 		Client: mgr.GetClient(),
 		Log:    logger.WithName("kf-cluster-controller"),
-	}).SetupWithManager(logger, mgr, controller.Options{}); err != nil {
+	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "KubeforceCluster")
 		os.Exit(1)
 	}
@@ -207,7 +205,7 @@ func main() {
 	}
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}

@@ -75,6 +75,10 @@ type StatusREST struct {
 	store *genericregistry.Store
 }
 
+// Destroy cleans up its resources on shutdown.
+func (r *StatusREST) Destroy() {
+}
+
 // New creates a new pod resource
 func (r *StatusREST) New() runtime.Object {
 	return &agent.PlaybookDeployment{}

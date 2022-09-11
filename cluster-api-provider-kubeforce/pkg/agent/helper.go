@@ -10,8 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	"k8s.io/component-base/version"
-
 	scp "github.com/bramvdbogaerde/go-scp"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
@@ -26,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/component-base/version"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -95,7 +94,7 @@ func (h *Helper) getAgentFilepath(ctx context.Context) (string, error) {
 }
 
 func (h *Helper) copyAgent(ctx context.Context, sshClient *ssh.Client) error {
-	scpClient, err := scp.NewClientBySSHWithTimeout(sshClient, 5*time.Minute)
+	scpClient, err := scp.NewClientBySSH(sshClient)
 	if err != nil {
 		return err
 	}
@@ -109,15 +108,17 @@ func (h *Helper) copyAgent(ctx context.Context, sshClient *ssh.Client) error {
 		return err
 	}
 	defer agentFile.Close()
-	err = scpClient.CopyFromFile(*agentFile, "agent", "0777")
+	ctx, cancelFunc := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancelFunc()
+	err = scpClient.CopyFromFile(ctx, *agentFile, "agent", "0777")
 	if err != nil {
 		return errors.Wrap(err, "unable to copy the agent binary to remote machine via ssh")
 	}
 	return nil
 }
 
-func (h *Helper) copyAgentConfig(sshClient *ssh.Client) error {
-	scpClient, err := scp.NewClientBySSHWithTimeout(sshClient, 5*time.Minute)
+func (h *Helper) copyAgentConfig(ctx context.Context, sshClient *ssh.Client) error {
+	scpClient, err := scp.NewClientBySSH(sshClient)
 	if err != nil {
 		return err
 	}
@@ -126,15 +127,17 @@ func (h *Helper) copyAgentConfig(sshClient *ssh.Client) error {
 	if err != nil {
 		return err
 	}
-	err = scpClient.Copy(bytes.NewReader(cfg), "config.yaml", "0600", int64(len(cfg)))
+	ctx, cancelFunc := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancelFunc()
+	err = scpClient.Copy(ctx, bytes.NewReader(cfg), "config.yaml", "0600", int64(len(cfg)))
 	if err != nil {
 		return errors.Wrap(err, "unable to copy the agent configuration to remote machine via ssh")
 	}
 	return nil
 }
 
-func (h *Helper) copyAgentClientConfig(sshClient *ssh.Client) error {
-	scpClient, err := scp.NewClientBySSHWithTimeout(sshClient, 5*time.Minute)
+func (h *Helper) copyAgentClientConfig(ctx context.Context, sshClient *ssh.Client) error {
+	scpClient, err := scp.NewClientBySSH(sshClient)
 	if err != nil {
 		return err
 	}
@@ -144,7 +147,9 @@ func (h *Helper) copyAgentClientConfig(sshClient *ssh.Client) error {
 	if err != nil {
 		return err
 	}
-	err = scpClient.Copy(bytes.NewReader(content), "agent-kubeconfig.yaml", "0600", int64(len(content)))
+	ctx, cancelFunc := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancelFunc()
+	err = scpClient.Copy(ctx, bytes.NewReader(content), "agent-kubeconfig.yaml", "0600", int64(len(content)))
 	if err != nil {
 		return errors.Wrap(err, "unable to copy kubeconfig for the agent to remote machine via ssh")
 	}
@@ -154,25 +159,26 @@ func (h *Helper) copyAgentClientConfig(sshClient *ssh.Client) error {
 func (h *Helper) Install(ctx context.Context) error {
 	sshClient, err := h.getSshClient(ctx)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to get ssh client")
 	}
 	defer sshClient.Close()
 
 	if err := h.copyAgent(ctx, sshClient); err != nil {
 		return err
 	}
-	if err := h.copyAgentConfig(sshClient); err != nil {
+	if err := h.copyAgentConfig(ctx, sshClient); err != nil {
 		return err
 	}
-	if err := h.copyAgentClientConfig(sshClient); err != nil {
+	if err := h.copyAgentClientConfig(ctx, sshClient); err != nil {
 		return err
 	}
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, time.Minute)
 	defer cancelFunc()
 	cmd := "sudo ./agent init --config config.yaml && rm agent config.yaml"
 	if out, err := h.runCommand(ctxTimeout, sshClient, cmd); err != nil {
-		ctrl.LoggerFrom(ctx).Error(err, "unable to install agent", "out", out, "cmd", cmd)
-		return err
+		msg := fmt.Sprintf("unable to install agent, command: %q", cmd)
+		ctrl.LoggerFrom(ctx).Error(err, msg, "out", out)
+		return errors.Wrap(err, msg)
 	}
 	return nil
 }
@@ -326,9 +332,7 @@ func (h *Helper) agentConfig() ([]byte, error) {
 			TLS: config.TLS{
 				CertData:       h.keys.certTLS,
 				PrivateKeyData: h.keys.privateKeyTLS,
-				// TODO: add CipherSuites
-				//CipherSuites:   nil,
-				TLSMinVersion: "VersionTLS13",
+				TLSMinVersion:  "VersionTLS13",
 			},
 			Authentication: config.AgentAuthentication{
 				X509: config.AgentX509Authentication{

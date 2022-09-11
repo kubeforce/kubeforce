@@ -26,25 +26,42 @@ import (
 	"k3f.io/kubeforce/agent/pkg/config"
 	configutils "k3f.io/kubeforce/agent/pkg/config/utils"
 	"k3f.io/kubeforce/agent/pkg/install"
+	"k8s.io/component-base/logs"
+	logsapi "k8s.io/component-base/logs/api/v1"
+	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// initCmd represents the init command
-var initCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Register and start the agent as a systemd service.",
-	Long: `Register and start the agent as a systemd service.
+func NewInitCommand() *cobra.Command {
+
+	c := logsapi.NewLoggingConfiguration()
+	klog.EnableContextualLogging(true)
+	cmd := &cobra.Command{
+		Use:   "init",
+		Short: "Register and start the agent as a systemd service.",
+		Long: `Register and start the agent as a systemd service.
 `,
-	Run: func(cmd *cobra.Command, args []string) {
-		err := runInitCmd()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-	},
+		Run: func(cmd *cobra.Command, args []string) {
+			logs.InitLogs()
+			if err := logsapi.ValidateAndApply(c, nil); err != nil {
+				fmt.Fprintf(os.Stderr, "%v\n", err)
+				os.Exit(1)
+			}
+
+			ctx := klog.NewContext(ctrl.SetupSignalHandler(), klog.Background())
+			err := runInitCmd(ctx)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%v\n", err)
+				os.Exit(1)
+			}
+		},
+	}
+	logsapi.AddFlags(c, cmd.Flags())
+	return cmd
 }
 
 func init() {
-	rootCmd.AddCommand(initCmd)
+	rootCmd.AddCommand(NewInitCommand())
 }
 
 func printConfig(cfg *config.Config) error {
@@ -62,8 +79,7 @@ func printConfig(cfg *config.Config) error {
 	return nil
 }
 
-func runInitCmd() error {
-	ctx := context.Background()
+func runInitCmd(ctx context.Context) error {
 	cfg, err := configutils.LoadFromFile(cfgFile)
 	if err != nil {
 		return errors.Wrapf(err, "unable to read config file: %q", cfgFile)

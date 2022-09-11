@@ -39,6 +39,10 @@ type LogREST struct {
 	Store        *genericregistry.Store
 }
 
+// Destroy cleans up its resources on shutdown.
+func (r *LogREST) Destroy() {
+}
+
 // LogREST implements GetterWithOptions
 var _ = rest.GetterWithOptions(&LogREST{})
 
