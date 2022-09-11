@@ -90,11 +90,11 @@ func (c *ClientCache) deleteHolder(agentKey client.ObjectKey) {
 		return
 	}
 
-	c.log.V(2).Info("Deleting clientHolder", "agent", agentKey.String())
+	c.log.Info("Deleting clientHolder", "agent", agentKey.String())
 
-	c.log.V(4).Info("Stopping cache", "cluster", agentKey.String())
+	c.log.Info("Stopping cache", "agent", agentKey.String())
 	a.cache.Stop()
-	c.log.V(4).Info("Cache stopped", "cluster", agentKey.String())
+	c.log.Info("Cache stopped", "agent", agentKey.String())
 
 	delete(c.clientHolders, agentKey)
 }

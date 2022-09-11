@@ -266,7 +266,7 @@ func (r *KubeforceAgentGroupReconciler) updateAgent(ctx context.Context, agent *
 
 	// only SSH and CertIssuerRef fields can be changed
 	agent.Spec.SSH = desiredAgent.Spec.SSH
-	agent.Spec.Config.CertIssuerRef = desiredAgent.Spec.Config.CertIssuerRef
+	agent.Spec.Config.CertTemplate = desiredAgent.Spec.Config.CertTemplate
 
 	diff, err := patchObj.Data(agent)
 	if err != nil {
