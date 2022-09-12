@@ -22,6 +22,8 @@ import (
 	"os"
 	"testing"
 
+	clientset "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
+
 	"github.com/pkg/errors"
 	"k3f.io/kubeforce/agent/pkg/apiserver"
 	"k3f.io/kubeforce/agent/pkg/config"
@@ -35,10 +37,11 @@ import (
 )
 
 var (
-	restcfg   *rest.Config
-	k8sClient client.Client
-	ctx       context.Context
-	cancel    context.CancelFunc
+	restcfg      *rest.Config
+	k8sClient    client.Client
+	k8sClientset *clientset.Clientset
+	ctx          context.Context
+	cancel       context.CancelFunc
 )
 
 func TestMain(m *testing.M) {
@@ -46,7 +49,7 @@ func TestMain(m *testing.M) {
 	defer cancel()
 	if err := setup(ctx); err != nil {
 		fmt.Println(errors.Cause(err))
-		panic(err)
+		os.Exit(1)
 	}
 	code := m.Run()
 	os.Exit(code)
@@ -62,7 +65,10 @@ func setup(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "unable to start controller manager")
 	}
-
+	k8sClientset, err = clientset.NewForConfig(restcfg)
+	if err != nil {
+		return errors.Wrap(err, "unable to create a clientset")
+	}
 	k8sClient, err = client.New(restcfg, client.Options{Scheme: apiserver.Scheme})
 	if err != nil {
 		return errors.Wrap(err, "unable to get k8s client")

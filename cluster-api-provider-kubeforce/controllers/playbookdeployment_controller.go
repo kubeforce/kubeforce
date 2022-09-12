@@ -18,9 +18,10 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
+
+	patchutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/patch"
 
 	agentctrl "k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
 
@@ -367,18 +368,18 @@ func (r *PlaybookDeploymentReconciler) updateExternalPlaybookDeployment(
 	if pd.Spec.RevisionHistoryLimit != nil {
 		extPd.Spec.RevisionHistoryLimit = pd.Spec.RevisionHistoryLimit
 	}
+
+	changed, err := patchutil.HasChanges(patchObj, extPd)
+	if err != nil {
+		return false, errors.WithStack(err)
+	}
+
 	diff, err := patchObj.Data(extPd)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to calculate patch data")
 	}
 
-	// Unmarshal patch data into a local map.
-	patchDiff := map[string]interface{}{}
-	if err := json.Unmarshal(diff, &patchDiff); err != nil {
-		return false, errors.Wrapf(err, "failed to unmarshal patch data into a map")
-	}
-
-	if len(patchDiff) > 0 {
+	if changed {
 		_, err := agentClient.AgentV1alpha1().PlaybookDeployments().Patch(ctx, extPd.Name, patchObj.Type(), diff, metav1.PatchOptions{})
 		if err != nil {
 			return false, errors.Wrapf(err, "failed to patch PlaybookDeployment")

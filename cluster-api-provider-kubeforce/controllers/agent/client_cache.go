@@ -80,8 +80,8 @@ func (c *ClientCache) getClientHolder(ctx context.Context, agent client.ObjectKe
 	return h, nil
 }
 
-// deleteAccessor stops a clientHolder's cache and removes the clientHolder.
-func (c *ClientCache) deleteHolder(agentKey client.ObjectKey) {
+// DeleteHolder stops a clientHolder's cache and removes the clientHolder.
+func (c *ClientCache) DeleteHolder(agentKey client.ObjectKey) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 

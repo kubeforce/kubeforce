@@ -19,7 +19,6 @@ import (
 	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/repository"
 	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/secret"
 	stringutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/strings"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -224,7 +223,7 @@ func (h *Helper) GetSshAuthMethod(ctx context.Context) (ssh.AuthMethod, error) {
 	if len(sshPassword) > 0 {
 		return ssh.Password(string(sshPassword)), nil
 	}
-	sshPrivateKey := s.Data[corev1.SSHAuthPrivateKey]
+	sshPrivateKey := s.Data[secret.SSHAuthPrivateKey]
 	if len(sshPrivateKey) == 0 {
 		return nil, errors.Errorf("one of fields 'ssh-password' or 'ssh-privatekey' is required for secret %v", key)
 	}
@@ -330,13 +329,13 @@ func (h *Helper) agentConfig() ([]byte, error) {
 		Spec: config.ConfigSpec{
 			Port: 5443,
 			TLS: config.TLS{
-				CertData:       h.keys.certTLS,
-				PrivateKeyData: h.keys.privateKeyTLS,
+				CertData:       h.keys.tls.Cert,
+				PrivateKeyData: h.keys.tls.Key,
 				TLSMinVersion:  "VersionTLS13",
 			},
 			Authentication: config.AgentAuthentication{
 				X509: config.AgentX509Authentication{
-					ClientCAData: h.keys.authCA.Cert,
+					ClientCAData: h.keys.authClient.CA,
 				},
 			},
 			ShutdownGracePeriod: metav1.Duration{

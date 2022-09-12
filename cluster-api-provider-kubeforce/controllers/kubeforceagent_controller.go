@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Kubernetes Authors.
+Copyright 2022 The Kubeforce Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,7 +19,12 @@ package controllers
 
 import (
 	"context"
+	"os"
 	"time"
+
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/secret"
+
+	patchutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/patch"
 
 	certutil "github.com/cert-manager/cert-manager/pkg/api/util"
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -145,6 +150,10 @@ func (r *KubeforceAgentReconciler) SetupWithManager(logger logr.Logger, mgr ctrl
 			&source.Kind{Type: &corev1.Secret{}},
 			&handler.EnqueueRequestForOwner{OwnerType: &infrav1.KubeforceAgent{}},
 		).
+		Watches(
+			&source.Kind{Type: &certv1.Certificate{}},
+			&handler.EnqueueRequestForOwner{OwnerType: &infrav1.KubeforceAgent{}},
+		).
 		Complete(r)
 }
 
@@ -252,11 +261,151 @@ func (r *KubeforceAgentReconciler) reconcileNormal(ctx context.Context, kfAgent 
 		}
 		return result, err
 	}
+	// wait until the agent is ready to connect
+	if !agent.IsReady(kfAgent) {
+		return ctrl.Result{}, nil
+	}
+	changedTLSCert, err := r.syncAgentTLSSecret(ctx, kfAgent, true)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if changedTLSCert {
+		kfAgent.Status.AgentInfo = nil
+		return ctrl.Result{}, err
+	}
+	changedClientCA, err := r.syncAgentClientSecret(ctx, kfAgent, true)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if changedClientCA {
+		kfAgent.Status.AgentInfo = nil
+		return ctrl.Result{}, err
+	}
 	if err := r.reconcileAgentInfo(ctx, kfAgent); err != nil {
 		log.Error(err, "unable to get the agent info")
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
+}
+
+func (r *KubeforceAgentReconciler) syncAgentTLSSecret(ctx context.Context, kfAgent *infrav1.KubeforceAgent, needUpload bool) (bool, error) {
+	issuedTLSKey := agent.GetAgentTLSObjectKey(kfAgent, agent.IssuedKey)
+	issuedTLSSecret := &corev1.Secret{}
+	if err := r.Client.Get(ctx, issuedTLSKey, issuedTLSSecret); err != nil {
+		return false, errors.Wrapf(err, "failed to get tls secret %s", issuedTLSKey)
+	}
+	activeTLSKey := agent.GetAgentTLSObjectKey(kfAgent, agent.ActiveKey)
+	activeTLSSecret := &corev1.Secret{}
+	needCreate := false
+	if err := r.Client.Get(ctx, activeTLSKey, activeTLSSecret); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return false, errors.Wrapf(err, "failed to get tls secret %s", activeTLSKey)
+		}
+		needCreate = true
+	}
+
+	patchObj := client.MergeFrom(activeTLSSecret.DeepCopy())
+	r.copySecretFields(activeTLSSecret, issuedTLSSecret)
+	changed, err := patchutil.HasChanges(patchObj, activeTLSSecret)
+	if err != nil {
+		return false, errors.WithStack(err)
+	}
+	if changed && needUpload {
+		clientset, err := r.AgentClientCache.GetClientSet(ctx, client.ObjectKeyFromObject(kfAgent))
+		if err != nil {
+			return false, errors.WithStack(err)
+		}
+		mode := os.FileMode(0o600)
+		if err := clientset.UploadData(ctx, "/etc/kubeforce/certs/tls.crt", activeTLSSecret.Data[corev1.TLSCertKey], &mode); err != nil {
+			return false, errors.Wrapf(err, "unable to upload the tls certificate")
+		}
+		if err := clientset.UploadData(ctx, "/etc/kubeforce/certs/tls.key", activeTLSSecret.Data[corev1.TLSPrivateKeyKey], &mode); err != nil {
+			return false, errors.Wrapf(err, "unable to upload the tls private key")
+		}
+	}
+
+	if needCreate {
+		activeTLSSecret.SetName(activeTLSKey.Name)
+		activeTLSSecret.SetNamespace(activeTLSKey.Namespace)
+		if err := r.Client.Create(ctx, activeTLSSecret); err != nil {
+			return false, errors.Wrapf(err, "unable to create tls secret %s", activeTLSKey)
+		}
+		r.AgentClientCache.DeleteHolder(client.ObjectKeyFromObject(kfAgent))
+		return true, nil
+	}
+
+	if changed {
+		err := r.Client.Patch(ctx, activeTLSSecret, patchObj)
+		if err != nil {
+			return false, errors.Wrapf(err, "failed to patch Secret %s", activeTLSKey)
+		}
+		r.AgentClientCache.DeleteHolder(client.ObjectKeyFromObject(kfAgent))
+	}
+
+	return changed, nil
+}
+
+func (r *KubeforceAgentReconciler) syncAgentClientSecret(ctx context.Context, kfAgent *infrav1.KubeforceAgent, needUpload bool) (bool, error) {
+	issuedClientKey, err := agent.GetAgentClientCertObjectKey(kfAgent, agent.IssuedKey)
+	if err != nil {
+		return false, err
+	}
+	issuedClientSecret := &corev1.Secret{}
+	if err := r.Client.Get(ctx, *issuedClientKey, issuedClientSecret); err != nil {
+		return false, errors.Wrapf(err, "failed to get tls secret %s", issuedClientKey.String())
+	}
+	activeClientKey, err := agent.GetAgentClientCertObjectKey(kfAgent, agent.ActiveKey)
+	if err != nil {
+		return false, err
+	}
+	activeClientSecret := &corev1.Secret{}
+	needCreate := false
+	if err := r.Client.Get(ctx, *activeClientKey, activeClientSecret); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return false, errors.Wrapf(err, "failed to get tls secret %s", activeClientKey.String())
+		}
+		needCreate = true
+	}
+
+	patchObj := client.MergeFrom(activeClientSecret.DeepCopy())
+	r.copySecretFields(activeClientSecret, issuedClientSecret)
+	controllerOwnerRef := *metav1.NewControllerRef(kfAgent, infrav1.GroupVersion.WithKind("KubeforceAgent"))
+	activeClientSecret.OwnerReferences = []metav1.OwnerReference{controllerOwnerRef}
+	changed, err := patchutil.HasChanges(patchObj, activeClientSecret)
+	if err != nil {
+		return false, errors.WithStack(err)
+	}
+
+	if changed && needUpload {
+		clientset, err := r.AgentClientCache.GetClientSet(ctx, client.ObjectKeyFromObject(kfAgent))
+		if err != nil {
+			return false, errors.WithStack(err)
+		}
+		mode := os.FileMode(0o600)
+		if err := clientset.UploadData(ctx, "/etc/kubeforce/certs/client-ca.crt", activeClientSecret.Data[secret.TLSCAKey], &mode); err != nil {
+			return false, errors.Wrapf(err, "unable to upload the tls certificate")
+		}
+	}
+
+	if needCreate {
+		activeClientSecret.SetName(activeClientKey.Name)
+		activeClientSecret.SetNamespace(activeClientKey.Namespace)
+		if err := r.Client.Create(ctx, activeClientSecret); err != nil {
+			return false, errors.Wrapf(err, "unable to create tls secret %s", activeClientKey)
+		}
+		r.AgentClientCache.DeleteHolder(client.ObjectKeyFromObject(kfAgent))
+		return true, nil
+	}
+
+	if changed {
+		err := r.Client.Patch(ctx, activeClientSecret, patchObj)
+		if err != nil {
+			return false, errors.Wrapf(err, "failed to patch Secret %s", activeClientKey)
+		}
+		r.AgentClientCache.DeleteHolder(client.ObjectKeyFromObject(kfAgent))
+	}
+
+	return changed, nil
 }
 
 func (r *KubeforceAgentReconciler) reconcileAgentInfo(ctx context.Context, kfAgent *infrav1.KubeforceAgent) error {
@@ -291,6 +440,14 @@ func (r *KubeforceAgentReconciler) reconcileAgentInstallation(ctx context.Contex
 		conditions.MarkFalse(kfAgent, infrav1.AgentInstalledCondition, infrav1.WaitingForSSHConfigurationReason, clusterv1.ConditionSeverityInfo, "")
 		return ctrl.Result{}, nil
 	}
+	if _, err := r.syncAgentTLSSecret(ctx, kfAgent, false); err != nil {
+		conditions.MarkFalse(kfAgent, infrav1.AgentInstalledCondition, infrav1.AgentInstallingFailedReason, clusterv1.ConditionSeverityInfo, err.Error())
+		return ctrl.Result{}, err
+	}
+	if _, err := r.syncAgentClientSecret(ctx, kfAgent, false); err != nil {
+		conditions.MarkFalse(kfAgent, infrav1.AgentInstalledCondition, infrav1.AgentInstallingFailedReason, clusterv1.ConditionSeverityInfo, err.Error())
+		return ctrl.Result{}, err
+	}
 	agentHelper, err := agent.GetHelper(ctx, r.Client, r.Storage, kfAgent)
 	if err != nil {
 		conditions.MarkFalse(kfAgent, infrav1.AgentInstalledCondition, infrav1.AgentInstallingFailedReason, clusterv1.ConditionSeverityInfo, err.Error())
@@ -303,6 +460,7 @@ func (r *KubeforceAgentReconciler) reconcileAgentInstallation(ctx context.Contex
 			RequeueAfter: 10 * time.Second,
 		}, nil
 	}
+	kfAgent.Status.AgentInfo = nil
 	err = agentHelper.Install(ctx)
 	if err != nil {
 		kfAgent.Status.FailureReason = infrav1.InstallAgentError
@@ -319,6 +477,22 @@ func (r *KubeforceAgentReconciler) reconcileAgentInstallation(ctx context.Contex
 	return ctrl.Result{}, nil
 }
 
+func (r *KubeforceAgentReconciler) copySecretFields(dst *corev1.Secret, src *corev1.Secret) {
+	if dst.Data == nil {
+		dst.Data = make(map[string][]byte)
+	}
+	for key, data := range src.Data {
+		dst.Data[key] = data
+	}
+	if dst.Labels == nil {
+		dst.Labels = make(map[string]string)
+	}
+	for key, val := range src.Labels {
+		dst.Labels[key] = val
+	}
+	dst.OwnerReferences = src.OwnerReferences
+}
+
 func (r *KubeforceAgentReconciler) reconcileTLSCert(ctx context.Context, kfAgent *infrav1.KubeforceAgent) (ctrl.Result, error) {
 	if kfAgent.Spec.Config.CertTemplate.IssuerRef.Name == "" {
 		msg := "Waiting for the certification issuer reference to be specified"
@@ -326,7 +500,7 @@ func (r *KubeforceAgentReconciler) reconcileTLSCert(ctx context.Context, kfAgent
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	certKey := agent.GetAgentTLSObjectKey(kfAgent)
+	certKey := agent.GetAgentTLSObjectKey(kfAgent, agent.IssuedKey)
 
 	cert := &certv1.Certificate{}
 	controllerOwnerRef := *metav1.NewControllerRef(kfAgent, infrav1.GroupVersion.WithKind("KubeforceAgent"))
@@ -337,9 +511,7 @@ func (r *KubeforceAgentReconciler) reconcileTLSCert(ctx context.Context, kfAgent
 				conditions.MarkFalse(kfAgent, infrav1.AgentTLSCondition, infrav1.WaitingForCertIssueReason, clusterv1.ConditionSeverityError, createErr.Error())
 				return ctrl.Result{}, createErr
 			}
-			return ctrl.Result{
-				RequeueAfter: 5 * time.Second,
-			}, nil
+			return ctrl.Result{}, nil
 		}
 		conditions.MarkFalse(kfAgent, infrav1.AgentTLSCondition, infrav1.WaitingForCertIssueReason, clusterv1.ConditionSeverityError, err.Error())
 		return ctrl.Result{}, err
@@ -347,9 +519,7 @@ func (r *KubeforceAgentReconciler) reconcileTLSCert(ctx context.Context, kfAgent
 	cond := certutil.GetCertificateCondition(cert, cmapi.CertificateConditionReady)
 	if cond == nil || cond.Status != cmmeta.ConditionTrue || cond.ObservedGeneration != cert.Generation {
 		conditions.MarkFalse(kfAgent, infrav1.AgentTLSCondition, infrav1.WaitingForCertIssueReason, clusterv1.ConditionSeverityInfo, "")
-		return ctrl.Result{
-			RequeueAfter: 5 * time.Second,
-		}, nil
+		return ctrl.Result{}, nil
 	}
 
 	s := &corev1.Secret{}

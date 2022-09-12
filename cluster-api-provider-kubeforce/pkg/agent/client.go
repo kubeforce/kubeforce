@@ -4,15 +4,13 @@ import (
 	"net"
 	"time"
 
-	"k8s.io/client-go/tools/clientcmd/api"
-
-	"sigs.k8s.io/cluster-api/util/conditions"
-
 	"github.com/pkg/errors"
 	clientset "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
 	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
 	stringutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/strings"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd/api"
+	"sigs.k8s.io/cluster-api/util/conditions"
 )
 
 func NewClientConfigByAddress(keys *Keys, addresses infrav1.Addresses) (*restclient.Config, error) {
@@ -41,12 +39,12 @@ func NewClientConfig(keys *Keys, host string) *restclient.Config {
 		TLSClientConfig: restclient.TLSClientConfig{
 			CertData:   keys.authClient.Cert,
 			KeyData:    keys.authClient.Key,
-			CAData:     keys.caTLS,
+			CAData:     keys.tls.CA,
 			NextProtos: []string{"h2"},
 		},
 	}
 	if len(config.TLSClientConfig.CAData) == 0 {
-		config.TLSClientConfig.CAData = keys.certTLS
+		config.TLSClientConfig.CAData = keys.tls.Cert
 	}
 	return &config
 }
@@ -58,7 +56,7 @@ func NewClientKubeconfig(keys *Keys, server string) api.Config {
 	clusters := make(map[string]*api.Cluster)
 	clusters[clusterName] = &api.Cluster{
 		Server:                   server,
-		CertificateAuthorityData: keys.caTLS,
+		CertificateAuthorityData: keys.tls.CA,
 	}
 
 	contexts := make(map[string]*api.Context)

@@ -73,8 +73,8 @@ spec:
     - "key encipherment"
     - "client auth"
   isCA: false
-  duration: 87600h0m0s # 10 years
-  renewBefore: 720h0m0s # 30 days
+  duration: 720h0m0s # 30 days
+  renewBefore: 360h0m0s # 15 days
   #  privateKey:
   #    algorithm: ECDSA
   #    size: 256
@@ -127,13 +127,15 @@ spec:
         username: test
         secretName: secret-ssh-auth
       config:
-        certIssuerRef:
-          apiGroup: "cert-manager.io"
-          kind: Issuer
-          name: selfsigned-issuer
+        certTemplate:
+          issuerRef:
+            group: "cert-manager.io"
+            kind: Issuer
+            name: selfsigned-issuer
+          duration: 720h0m0s # 30 days
+          renewBefore: 360h0m0s # 15 days
         authentication:
           x509:
-            caSecret: agent-auth-ca
             clientSecret: agent-client-tls
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
@@ -156,13 +158,15 @@ spec:
     username: test
     secretName: secret-ssh-auth
   config:
-    certIssuerRef:
-      apiGroup: "cert-manager.io"
-      kind: Issuer
-      name: selfsigned-issuer
+    certTemplate:
+      issuerRef:
+        group: "cert-manager.io"
+        kind: Issuer
+        name: selfsigned-issuer
+      duration: 720h0m0s # 30 days
+      renewBefore: 360h0m0s # 15 days
     authentication:
       x509:
-        caSecret: agent-auth-ca
         clientSecret: agent-client-tls
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
@@ -290,13 +294,15 @@ spec:
         username: test
         secretName: secret-ssh-auth
       config:
-        certIssuerRef:
-          apiGroup: "cert-manager.io"
-          kind: Issuer
-          name: selfsigned-issuer
+        certTemplate:
+          issuerRef:
+            group: "cert-manager.io"
+            kind: Issuer
+            name: selfsigned-issuer
+          duration: 720h0m0s # 30 days
+          renewBefore: 360h0m0s # 15 days
         authentication:
           x509:
-            caSecret: agent-auth-ca
             clientSecret: agent-client-tls
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
@@ -313,19 +319,21 @@ spec:
       name: local-agent-repo
     version: latest
   addresses:
-    hostname: master3
+    hostname: worker3
     externalIP: 172.18.0.9
   ssh:
     username: test
     secretName: secret-ssh-auth
   config:
-    certIssuerRef:
-      apiGroup: "cert-manager.io"
-      kind: Issuer
-      name: selfsigned-issuer
+    certTemplate:
+      issuerRef:
+        group: "cert-manager.io"
+        kind: Issuer
+        name: selfsigned-issuer
+      duration: 720h0m0s # 30 days
+      renewBefore: 360h0m0s # 15 days
     authentication:
       x509:
-        caSecret: agent-auth-ca
         clientSecret: agent-client-tls
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1

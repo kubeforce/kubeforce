@@ -19,8 +19,9 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+
+	patchutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/patch"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -268,18 +269,12 @@ func (r *KubeforceAgentGroupReconciler) updateAgent(ctx context.Context, agent *
 	agent.Spec.SSH = desiredAgent.Spec.SSH
 	agent.Spec.Config.CertTemplate = desiredAgent.Spec.Config.CertTemplate
 
-	diff, err := patchObj.Data(agent)
+	changed, err := patchutil.HasChanges(patchObj, agent)
 	if err != nil {
-		return errors.Wrapf(err, "failed to calculate patch data")
+		return errors.WithStack(err)
 	}
 
-	// Unmarshal patch data into a local map.
-	patchDiff := map[string]interface{}{}
-	if err := json.Unmarshal(diff, &patchDiff); err != nil {
-		return errors.Wrapf(err, "failed to unmarshal patch data into a map")
-	}
-
-	if len(patchDiff) > 0 {
+	if changed {
 		if err := r.Client.Patch(ctx, agent, patchObj); err != nil {
 			return errors.Wrapf(err, "failed to patch KubeforceAgent")
 		}

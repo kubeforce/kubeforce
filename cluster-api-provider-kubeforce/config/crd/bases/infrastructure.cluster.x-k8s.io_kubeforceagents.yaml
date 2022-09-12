@@ -105,12 +105,9 @@ spec:
                         description: X509 contains settings related to x509 client
                           certificate authentication
                         properties:
-                          caSecret:
-                            type: string
                           clientSecret:
                             type: string
                         required:
-                        - caSecret
                         - clientSecret
                         type: object
                     type: object

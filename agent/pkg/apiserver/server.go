@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Kubeforce Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package apiserver
 
 import (
@@ -9,9 +25,6 @@ import (
 	"strings"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
-
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	apisinstall "k3f.io/kubeforce/agent/pkg/apis/agent/install"
@@ -21,6 +34,7 @@ import (
 	"k3f.io/kubeforce/agent/pkg/install"
 	agentrest "k3f.io/kubeforce/agent/pkg/registry/agent/rest"
 	"k3f.io/kubeforce/agent/pkg/registry/storage"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -29,6 +43,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/authenticatorfactory"
+	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/openapi"
 	"k8s.io/apiserver/pkg/features"
 	"k8s.io/apiserver/pkg/registry/generic"
@@ -204,6 +219,7 @@ func (s *Server) init() error {
 func (s *Server) InstallDefaultHandlers() {
 	klog.InfoS("Adding default handlers to agent server")
 	s.genericAPIServer.Handler.NonGoRestfulMux.HandleFunc("/uninstall", s.uninstall)
+	s.genericAPIServer.Handler.NonGoRestfulMux.Handle("/upload", NewUploadHandler())
 }
 
 // createSecureServing fills up serving information in the server configuration.

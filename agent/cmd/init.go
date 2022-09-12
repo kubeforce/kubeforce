@@ -90,7 +90,7 @@ func runInitCmd(ctx context.Context) error {
 		return err
 	}
 
-	if err := install.Install(ctx, cfgFile); err != nil {
+	if err := install.Install(ctx, *cfg); err != nil {
 		return err
 	}
 
