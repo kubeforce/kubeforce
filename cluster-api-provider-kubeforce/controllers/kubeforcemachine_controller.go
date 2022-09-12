@@ -18,10 +18,11 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
+
+	patchutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/patch"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -681,18 +682,13 @@ func (r *KubeforceMachineReconciler) updatePlaybookDeployment(ctx context.Contex
 		Files:      data.Files,
 		Entrypoint: data.Entrypoint,
 	}
-	diff, err := patchObj.Data(pd)
+
+	changed, err := patchutil.HasChanges(patchObj, pd)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed to calculate patch data")
+		return false, errors.WithStack(err)
 	}
 
-	// Unmarshal patch data into a local map.
-	patchDiff := map[string]interface{}{}
-	if err := json.Unmarshal(diff, &patchDiff); err != nil {
-		return false, errors.Wrapf(err, "failed to unmarshal patch data into a map")
-	}
-
-	if len(patchDiff) > 0 {
+	if changed {
 		r.Log.Info("updating PlaybookDeployment",
 			"id", ctx.Value("id"),
 			"name", pd.Name)

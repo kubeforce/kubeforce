@@ -9,6 +9,10 @@ import (
 	"os"
 	"path/filepath"
 
+	configutils "k3f.io/kubeforce/agent/pkg/config/utils"
+
+	"k3f.io/kubeforce/agent/pkg/config"
+
 	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/pkg/errors"
 	"k8s.io/klog/v2"
@@ -20,14 +24,20 @@ var (
 )
 
 // Install installs a agent as the systemd service and runs it
-func Install(ctx context.Context, cfgFile string) error {
+func Install(ctx context.Context, cfg config.Config) error {
 	if err := stopService(ctx); err != nil {
 		return err
 	}
 	if err := copyBinary(); err != nil {
 		return err
 	}
-	if err := copyConfig(cfgFile); err != nil {
+	if err := copyTLSCerts(cfg.Spec); err != nil {
+		return err
+	}
+	if err := copyClientCACert(cfg.Spec); err != nil {
+		return err
+	}
+	if err := saveConfig(cfg); err != nil {
 		return err
 	}
 	if err := createService(ctx); err != nil {
@@ -44,7 +54,7 @@ func copyBinary() error {
 	if err := os.MkdirAll(filepath.Dir(agentPath), 0755); err != nil {
 		return err
 	}
-	if _, err := copy(exPath, agentPath, 0755); err != nil {
+	if _, err := copy(agentPath, exPath, 0755); err != nil {
 		return err
 	}
 	if err := os.Chmod(agentPath, 0755); err != nil {
@@ -56,14 +66,63 @@ func copyBinary() error {
 	return nil
 }
 
-func copyConfig(cfgFile string) error {
-	if err := os.MkdirAll(filepath.Dir(configPath), 0600); err != nil {
+func copyTLSCerts(cfg config.ConfigSpec) error {
+	if len(cfg.TLS.CertData) != 0 || len(cfg.TLS.PrivateKeyData) != 0 {
+		if _, err := saveFile(certFile, cfg.TLS.CertData, 0o600, 0o777); err != nil {
+			return err
+		}
+		if _, err := saveFile(privateKeyFile, cfg.TLS.PrivateKeyData, 0o600, 0o777); err != nil {
+			return err
+		}
+	} else if len(cfg.TLS.CertFile) != 0 || len(cfg.TLS.PrivateKeyFile) != 0 {
+		if _, err := copy(certFile, cfg.TLS.CertFile, 0600); err != nil {
+			return err
+		}
+		if _, err := copy(privateKeyFile, cfg.TLS.PrivateKeyFile, 0600); err != nil {
+			return err
+		}
+	} else {
+		return errors.New("tls certificate and private key is not defined")
+	}
+	return nil
+}
+
+func copyClientCACert(cfg config.ConfigSpec) error {
+	if len(cfg.Authentication.X509.ClientCAData) > 0 {
+		if _, err := saveFile(clientCAFile, cfg.Authentication.X509.ClientCAData, 0o600, 0o777); err != nil {
+			return err
+		}
+	} else if len(cfg.Authentication.X509.ClientCAFile) > 0 {
+		if _, err := copy(clientCAFile, cfg.Authentication.X509.ClientCAFile, 0600); err != nil {
+			return err
+		}
+	} else {
+		return errors.New("authentication is not configured")
+	}
+	return nil
+}
+
+func saveConfig(cfg config.Config) error {
+	cfg = *cfg.DeepCopy()
+	cfg.Spec.TLS.CertFile = certFile
+	cfg.Spec.TLS.CertData = nil
+	cfg.Spec.TLS.PrivateKeyFile = privateKeyFile
+	cfg.Spec.TLS.PrivateKeyData = nil
+	cfg.Spec.Authentication.X509.ClientCAFile = clientCAFile
+	cfg.Spec.Authentication.X509.ClientCAData = nil
+
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o600); err != nil {
 		return err
 	}
-	if _, err := copy(cfgFile, configPath, 0600); err != nil {
+	data, err := configutils.Marshal(&cfg)
+	if err != nil {
 		return err
 	}
-	if err := os.Chmod(configPath, 0600); err != nil {
+
+	if _, err := saveFile(configPath, data, 0o600, 0o777); err != nil {
+		return err
+	}
+	if err := os.Chmod(configPath, 0o600); err != nil {
 		return err
 	}
 	return nil
@@ -129,7 +188,20 @@ func createService(ctx context.Context) error {
 	return nil
 }
 
-func copy(src, dst string, dstMode os.FileMode) (int64, error) {
+func saveFile(dst string, data []byte, dstMode os.FileMode, dirMode os.FileMode) (int, error) {
+	if err := os.MkdirAll(filepath.Dir(dst), dirMode); err != nil {
+		return 0, err
+	}
+	destination, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, dstMode)
+	if err != nil {
+		return 0, err
+	}
+	defer destination.Close()
+	nBytes, err := destination.Write(data)
+	return nBytes, err
+}
+
+func copy(dst, src string, dstMode os.FileMode) (int64, error) {
 	sourceFileStat, err := os.Stat(src)
 	if err != nil {
 		return 0, err

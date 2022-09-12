@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Kubernetes Authors.
+Copyright 2022 The Kubeforce Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,28 +16,24 @@ limitations under the License.
 
 package secret
 
-// Purpose is the name to append to the secret generated for a cluster.
-type Purpose string
+import corev1 "k8s.io/api/core/v1"
 
 const (
 	// TLSCAKey is the key used to store a CA certificate in the secret's data field.
 	TLSCAKey = "ca.crt"
 
-	// TLSKeyDataName is the key used to store a TLS private key in the secret's data field.
-	TLSKeyDataName = "tls.key"
+	// TLSCertKey is the key used to store a TLS private key in the secret's data field.
+	TLSCertKey = corev1.TLSCertKey
 
-	// TLSCrtDataName is the key used to store a TLS certificate in the secret's data field.
-	TLSCrtDataName = "tls.crt"
+	// TLSPrivateKeyKey is the key used to store a TLS certificate in the secret's data field.
+	TLSPrivateKeyKey = corev1.TLSPrivateKeyKey
+
+	// SSHAuthPrivateKey is the key of the required SSH private key for SecretTypeSSHAuth secrets
+	SSHAuthPrivateKey = corev1.SSHAuthPrivateKey
 
 	// SSHAuthPassword is the password of the SSH configuration
 	SSHAuthPassword = "ssh-password"
 
 	// SSHAuthPassphrase is the passphrase of the SSH private key
 	SSHAuthPassphrase = "ssh-passphrase"
-
-	// AgentAuthCA is the secret name suffix for Agent CA.
-	AgentAuthCA = Purpose("agent-auth-ca")
-
-	// AgentClient is the secret name suffix for Agent Client certificate.
-	AgentClient = Purpose("agent-client")
 )

@@ -2,12 +2,12 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
+	patchutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/patch"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/flowcontrol"
@@ -79,18 +79,12 @@ func (i *Initializer) ensureGitHubRepo(ctx context.Context) error {
 		}
 		return nil
 	}
-	diff, err := patchObj.Data(repo)
+
+	changed, err := patchutil.HasChanges(patchObj, repo)
 	if err != nil {
-		return errors.Wrapf(err, "failed to calculate patch data")
+		return errors.WithStack(err)
 	}
-
-	// Unmarshal patch data into a local map.
-	patchDiff := map[string]interface{}{}
-	if err := json.Unmarshal(diff, &patchDiff); err != nil {
-		return errors.Wrapf(err, "failed to unmarshal patch data into a map")
-	}
-
-	if len(patchDiff) > 0 {
+	if changed {
 		i.Log.Info("updating GitHubRepo", "key", key)
 		err := i.Client.Patch(ctx, repo, patchObj)
 		if err != nil {

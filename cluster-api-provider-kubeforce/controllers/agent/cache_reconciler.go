@@ -49,7 +49,7 @@ func (r *CacheReconciler) Reconcile(ctx context.Context, req reconcile.Request) 
 	err := r.Client.Get(ctx, req.NamespacedName, kfAgent)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			r.ClientCache.deleteHolder(req.NamespacedName)
+			r.ClientCache.DeleteHolder(req.NamespacedName)
 			return reconcile.Result{}, nil
 		}
 		log.Error(err, "Error retrieving KubeforceAgent")
@@ -76,7 +76,7 @@ func (r *CacheReconciler) Reconcile(ctx context.Context, req reconcile.Request) 
 		return reconcile.Result{}, errors.Wrapf(err, "unable to calc checksum of restConfig for agent %q", req.NamespacedName)
 	}
 	if calcChecksum != oldChecksum {
-		r.ClientCache.deleteHolder(req.NamespacedName)
+		r.ClientCache.DeleteHolder(req.NamespacedName)
 	}
 	return reconcile.Result{}, nil
 }

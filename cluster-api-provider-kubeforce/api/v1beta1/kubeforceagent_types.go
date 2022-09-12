@@ -198,7 +198,6 @@ type AgentAuthentication struct {
 
 // AgentX509Authentication is ...
 type AgentX509Authentication struct {
-	CaSecret     string `json:"caSecret"`
 	ClientSecret string `json:"clientSecret"`
 }
 
