@@ -20,9 +20,11 @@ set -o pipefail
 
 ROOT_MODULE_NAME=k3f.io/kubeforce
 MODULE_NAME=${ROOT_MODULE_NAME}/agent
-CODEGEN_TAG_VERSION=v0.22.1
+CODEGEN_TAG_VERSION=v0.25.0
+CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ROOT_DIR="$( cd "${CURRENT_DIR}/../../" && pwd )"
 CURRENT_DIR=$(dirname "${BASH_SOURCE[0]}")
-GOPATH_SRC=$(dirname "${BASH_SOURCE[0]}")/../../../../..
+GOPATH_SRC="${GOPATH}/src"
 go mod download k8s.io/code-generator@${CODEGEN_TAG_VERSION}
 CODEGEN_PKG=${GOPATH}/pkg/mod/k8s.io/code-generator@${CODEGEN_TAG_VERSION}
 
@@ -33,16 +35,16 @@ bash "${CODEGEN_PKG}/generate-groups.sh" all \
   ${MODULE_NAME}/pkg/generated ${MODULE_NAME}/pkg/apis \
   "agent:v1alpha1" \
   --output-base "${GOPATH_SRC}" \
-  --go-header-file "${CURRENT_DIR}/boilerplate.go.txt"
+  --go-header-file "${ROOT_DIR}/hack/boilerplate/boilerplate.generatego.txt"
 
 bash "${CURRENT_DIR}/generate-internal-groups.sh" "deepcopy,defaulter,conversion,openapi" \
   ${MODULE_NAME}/pkg/generated ${MODULE_NAME}/pkg/apis ${MODULE_NAME}/pkg/apis \
   "agent:v1alpha1" \
   --output-base "${GOPATH_SRC}" \
-  --go-header-file "${CURRENT_DIR}/boilerplate.go.txt"
+  --go-header-file "${ROOT_DIR}/hack/boilerplate/boilerplate.generatego.txt"
 
 bash "${CURRENT_DIR}/generate-internal-groups.sh" "deepcopy,defaulter,conversion" \
   ${MODULE_NAME}/pkg/config/generated ${MODULE_NAME}/pkg/ ${MODULE_NAME}/pkg/ \
   "config:v1alpha1" \
   --output-base "${GOPATH_SRC}" \
-  --go-header-file "${CURRENT_DIR}/boilerplate.go.txt"
+  --go-header-file "${ROOT_DIR}/hack/boilerplate/boilerplate.generatego.txt"

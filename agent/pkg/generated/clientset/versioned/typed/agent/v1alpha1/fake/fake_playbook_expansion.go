@@ -1,5 +1,5 @@
 /*
-Copyright The Kubeforce Authors.
+Copyright 2022 The Kubeforce Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,6 +23,5 @@ import (
 
 // GetLogs constructs a request for getting the logs for a playbook
 func (c *FakePlaybooks) GetLogs(name string, opts *v1alpha1.PlaybookLogOptions) *rest.Request {
-	//TODO implement me
-	panic("implement me")
+	return nil
 }

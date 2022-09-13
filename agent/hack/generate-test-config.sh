@@ -1,5 +1,19 @@
 #!/usr/bin/env bash
 
+# Copyright 2021 The Kubeforce Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 set -o errexit
 set -o nounset
 set -o pipefail
@@ -128,12 +142,12 @@ openssl x509  -text -noout -in "${CERT_DIR}/service.pem"
 
 cfssl gencert -ca "${CERT_DIR}/ca.pem" -ca-key "${CERT_DIR}/ca-key.pem" -config "${CERT_DIR}/cfssl.json" -profile=client "${CERT_DIR}/client.json" | cfssljson -bare "${CERT_DIR}/client"
 
-CERT_AUTH_DATA=$(cat ${CERT_DIR}/ca.pem | base64)
-SERVER_CERT_DATA=$(cat ${CERT_DIR}/service.pem | base64)
-SERVER_KEY_DATA=$(cat ${CERT_DIR}/service-key.pem | base64)
+CERT_AUTH_DATA=$(base64 < "${CERT_DIR}/ca.pem")
+SERVER_CERT_DATA=$(base64 < "${CERT_DIR}/service.pem")
+SERVER_KEY_DATA=$(base64 < "${CERT_DIR}/service-key.pem")
 
-CLIENT_CERT_DATA=$(cat ${CERT_DIR}/client.pem | base64)
-CLIENT_KEY_DATA=$(cat ${CERT_DIR}/client-key.pem | base64)
+CLIENT_CERT_DATA=$(base64 < "${CERT_DIR}/client.pem")
+CLIENT_KEY_DATA=$(base64 < "${CERT_DIR}/client-key.pem")
 
 cat >  "${CERT_DIR}/config.yaml" <<EOF
 apiVersion: config.agent.kubeforce.io/v1alpha1

@@ -110,7 +110,7 @@ func (c *FakePlaybooks) UpdateStatus(ctx context.Context, playbook *v1alpha1.Pla
 // Delete takes name of the playbook and deletes it. Returns an error if one occurs.
 func (c *FakePlaybooks) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(playbooksResource, name), &v1alpha1.Playbook{})
+		Invokes(testing.NewRootDeleteActionWithOptions(playbooksResource, name, opts), &v1alpha1.Playbook{})
 	return err
 }
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 # Copyright 2021 The Kubeforce Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -122,4 +123,4 @@ main() {
   esac
 }
 
-main $1
+main "$1"

@@ -1,7 +1,25 @@
+# Copyright 2018 The Kubeforce Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# If you update this file, please follow
+# https://www.thapaliya.com/en/writings/well-documented-makefiles/
+
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR := $(realpath $(patsubst %/,%,$(dir $(MKFILE_PATH))))
 BUILD_DIR ?= $(MKFILE_DIR)/_build
 VERSION := $(shell $(MKFILE_DIR)/hack/version.sh version)
+TOOLS_DIR := hack/tools
 
 .PHONY: help
 help:  ## Display this help
@@ -79,6 +97,28 @@ $(BUILD_DIR):
 clean: ## Remove build artefacts
 	rm -rf $(BUILD_DIR)
 
+## --------------------------------------
+## Generate / Manifests
+## --------------------------------------
+
+##@ generate:
+
+.PHONY: generate
+generate: ## Run all generation targets
+	$(MAKE) -C cluster-api-provider-kubeforce generate manifests
+	$(MAKE) -C agent gen-client
+
+.PHONY: generate-modules
+generate-modules: ## Run go mod tidy to ensure modules are up to date
+	go mod tidy
+	cd $(TOOLS_DIR); go mod tidy
+
+## --------------------------------------
+## Lint / Verify
+## --------------------------------------
+
+##@ lint and verify:
+
 .PHONY: lint
 lint: ## Lint packages on host
 	@golangci-lint run \
@@ -87,4 +127,37 @@ lint: ## Lint packages on host
 		./agent/... \
 		./cluster-api-provider-kubeforce/...
 
+ALL_VERIFY_CHECKS = modules boilerplate shellcheck modules dockerfiles gen
 
+.PHONY: verify
+verify: $(addprefix verify-,$(ALL_VERIFY_CHECKS)) ## Run all verify-* targets
+
+.PHONY: verify-boilerplate
+verify-boilerplate: ## Verify boilerplate text exists in each file
+	./hack/verify-boilerplate.sh
+
+.PHONY: verify-modules
+verify-modules: generate-modules  ## Verify go modules are up to date
+	@if !(git diff --quiet HEAD -- go.sum go.mod $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum); then \
+		git --no-pager diff; \
+		echo "go module files are out of date"; exit 1; \
+	fi
+	@if (find . -name 'go.mod' | xargs -n1 grep -q -i 'k8s.io/client-go.*+incompatible'); then \
+		find . -name "go.mod" -exec grep -i 'k8s.io/client-go.*+incompatible' {} \; -print; \
+		echo "go module contains an incompatible client-go version"; exit 1; \
+	fi
+
+.PHONY: verify-gen
+verify-gen: generate  ## Verify go generated files are up to date
+	@if !(git diff --quiet HEAD); then \
+		git --no-pager diff; \
+		echo "generated files are out of date, run make generate"; exit 1; \
+	fi
+
+.PHONY: verify-shellcheck
+verify-shellcheck: ## Verify shell files
+	./hack/verify-shellcheck.sh
+
+.PHONY: verify-dockerfiles
+verify-dockerfiles: ## Verify dockerfiles
+	./hack/verify-dockerfiles.sh
