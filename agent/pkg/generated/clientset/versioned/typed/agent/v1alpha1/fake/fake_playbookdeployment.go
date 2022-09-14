@@ -110,7 +110,7 @@ func (c *FakePlaybookDeployments) UpdateStatus(ctx context.Context, playbookDepl
 // Delete takes name of the playbookDeployment and deletes it. Returns an error if one occurs.
 func (c *FakePlaybookDeployments) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(playbookdeploymentsResource, name), &v1alpha1.PlaybookDeployment{})
+		Invokes(testing.NewRootDeleteActionWithOptions(playbookdeploymentsResource, name, opts), &v1alpha1.PlaybookDeployment{})
 	return err
 }
 

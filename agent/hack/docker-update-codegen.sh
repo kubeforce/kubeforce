@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2021
+# Copyright 2021 The Kubeforce Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 set -x
 set -o errexit
 set -o nounset
@@ -20,9 +21,9 @@ set -o pipefail
 
 ROOT_MODULE_NAME=k3f.io/kubeforce
 CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-ROOT_DIR="${CURRENT_DIR}/../../"
+ROOT_DIR="$( cd "${CURRENT_DIR}/../../" && pwd )"
 
-docker run -ti --rm \
+docker run --rm \
 -v "${ROOT_DIR}:/go/src/${ROOT_MODULE_NAME}" \
-golang:1.16 \
+golang:1.18 \
 /go/src/${ROOT_MODULE_NAME}/agent/hack/update-codegen.sh
