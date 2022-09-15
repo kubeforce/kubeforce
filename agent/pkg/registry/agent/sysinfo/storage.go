@@ -17,13 +17,14 @@ limitations under the License.
 package sysinfo
 
 import (
+	"k8s.io/apimachinery/pkg/runtime"
+
 	"k3f.io/kubeforce/agent/pkg/apis/agent"
 	sysinforest "k3f.io/kubeforce/agent/pkg/registry/agent/sysinfo/rest"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var (
-	// GroupResource is group used to register these objects
+	// GroupResource is group used to register these objects.
 	GroupResource = agent.Resource("sysinfos")
 )
 

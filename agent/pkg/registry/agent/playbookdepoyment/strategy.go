@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"k3f.io/kubeforce/agent/pkg/apis/agent"
-	"k3f.io/kubeforce/agent/pkg/apis/agent/validation"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,6 +29,9 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/apiserver/pkg/storage/names"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
+
+	"k3f.io/kubeforce/agent/pkg/apis/agent"
+	"k3f.io/kubeforce/agent/pkg/apis/agent/validation"
 )
 
 // NewStrategy creates and returns a playbookDeploymentStrategy instance

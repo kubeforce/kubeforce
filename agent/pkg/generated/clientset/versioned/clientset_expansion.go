@@ -27,7 +27,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Uninstall uninstalls the agent from the host
+// Uninstall uninstalls the agent from the host.
 func (c *Clientset) Uninstall(ctx context.Context) error {
 	return c.RESTClient().Delete().
 		AbsPath("uninstall").
@@ -35,7 +35,7 @@ func (c *Clientset) Uninstall(ctx context.Context) error {
 		Error()
 }
 
-// UploadData uploads content to the host and saves it as a file
+// UploadData uploads content to the host and saves it as a file.
 func (c *Clientset) UploadData(ctx context.Context, targetPath string, data []byte, mode *os.FileMode) error {
 	request := c.RESTClient().
 		Post().

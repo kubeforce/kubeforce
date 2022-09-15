@@ -21,25 +21,25 @@ import (
 	"sort"
 	"strings"
 
-	kubeadmv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
+	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
+	"sigs.k8s.io/yaml"
 
 	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/ansible"
-	"sigs.k8s.io/yaml"
 )
 
-// NewAnsibleAdapter creates a new ansible adapter
-func NewAnsibleAdapter(kubeadmCfg kubeadmv1.KubeadmConfigSpec) *AnsibleAdapter {
+// NewAnsibleAdapter creates a new ansible adapter.
+func NewAnsibleAdapter(kubeadmCfg bootstrapv1.KubeadmConfigSpec) *AnsibleAdapter {
 	return &AnsibleAdapter{
 		kubeadmCfg: kubeadmCfg,
 	}
 }
 
-// AnsibleAdapter prepares Ansible playbook cloud-config file
+// AnsibleAdapter prepares Ansible playbook cloud-config file.
 type AnsibleAdapter struct {
-	kubeadmCfg kubeadmv1.KubeadmConfigSpec
+	kubeadmCfg bootstrapv1.KubeadmConfigSpec
 }
 
-// ToPlaybook transform a cloud-config to a playbook
+// ToPlaybook transform a cloud-config to a playbook.
 func (a *AnsibleAdapter) ToPlaybook(cloudConfig []byte) (*ansible.Playbook, error) {
 	content, err := a.userDataToPlaybook(cloudConfig)
 	if err != nil {

@@ -22,13 +22,13 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Config defines agent configuration
+// Config defines agent configuration.
 type Config struct {
 	metav1.TypeMeta `json:",inline"`
 	Spec            ConfigSpec `json:"spec"`
 }
 
-// ConfigSpec defines agent configuration
+// ConfigSpec defines agent configuration.
 type ConfigSpec struct {
 	// Port is the port for the Agent to serve on.
 	Port int `json:"port"`
@@ -85,7 +85,7 @@ type AgentX509Authentication struct {
 	ClientCAData []byte `json:"clientCAData,omitempty"`
 }
 
-// EtcdConfig defines etcd configuration
+// EtcdConfig defines etcd configuration.
 type EtcdConfig struct {
 	// DataDir contains the path to the directory for storing etcd data.
 	DataDir string `json:"dataDir"`

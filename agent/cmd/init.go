@@ -23,17 +23,18 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"k3f.io/kubeforce/agent/pkg/config"
-	configutils "k3f.io/kubeforce/agent/pkg/config/utils"
-	"k3f.io/kubeforce/agent/pkg/install"
 	"k8s.io/component-base/logs"
 	logsapi "k8s.io/component-base/logs/api/v1"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	"k3f.io/kubeforce/agent/pkg/config"
+	configutils "k3f.io/kubeforce/agent/pkg/config/utils"
+	"k3f.io/kubeforce/agent/pkg/install"
 )
 
+// NewInitCommand returns a cobra command for install agent to the host..
 func NewInitCommand() *cobra.Command {
-
 	c := logsapi.NewLoggingConfiguration()
 	klog.EnableContextualLogging(true)
 	cmd := &cobra.Command{

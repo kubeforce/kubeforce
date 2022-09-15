@@ -18,15 +18,15 @@ package v1beta1
 
 import clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 
-// Conditions and condition Reasons for the KubeforceAgent object
+// Conditions and condition Reasons for the KubeforceAgent object.
 const (
-	// AgentInstalledCondition documents the status of the installing of the agent
+	// AgentInstalledCondition documents the status of the installing of the agent.
 	AgentInstalledCondition clusterv1.ConditionType = "AgentInstalled"
 
-	// WaitingForExternalAddressesReason (Severity=Info)
+	// WaitingForExternalAddressesReason (Severity=Info).
 	WaitingForExternalAddressesReason = "WaitingForExternalAddresses"
 
-	// WaitingForSSHConfigurationReason (Severity=Info)
+	// WaitingForSSHConfigurationReason (Severity=Info).
 	WaitingForSSHConfigurationReason = "WaitingForSSHConfiguration"
 
 	// WaitingForAgentToRunReason (Severity=Info) documents a KubeforceMachine waiting for the agent
@@ -40,13 +40,14 @@ const (
 )
 
 const (
-	Healthy clusterv1.ConditionType = "Healthy"
-
+	// HealthyCondition documents the health state of an agent.
+	HealthyCondition clusterv1.ConditionType = "Healthy"
+	// ProbeFailedReason (Severity=Error) documents a KubeforceMachine that controller can not connect to the agent.
 	ProbeFailedReason = "ProbeFailed"
 )
 
 const (
-	// AgentTLSCondition documents the status of the agent tls certificate
+	// AgentTLSCondition documents the status of the agent tls certificate.
 	AgentTLSCondition clusterv1.ConditionType = "AgentTLS"
 
 	// WaitingForCertIssuerRefReason (Severity=Error) documents a KubeforceMachine waiting for the certificate
@@ -67,14 +68,14 @@ const (
 	WaitingForBootstrapDataReason = "WaitingForBootstrapData"
 
 	// PlaybookDeployingFailedReason (Severity=Error) documents a KubeforceMachine detecting
-	// an error while deploying the playbook;
+	// an error while deploying the playbook.
 	PlaybookDeployingFailedReason = "PlaybookDeployingFailed"
 
-	// WaitingForCompletionPhaseReason (Severity=Info)
+	// WaitingForCompletionPhaseReason (Severity=Info).
 	WaitingForCompletionPhaseReason = "WaitingForCompletionPhase"
 
 	// WaitingForClusterInfrastructureReason (Severity=Info) documents a KubeforceMachine waiting for the cluster
-	// infrastructure to be ready before starting
+	// infrastructure to be ready before starting.
 	WaitingForClusterInfrastructureReason = "WaitingForClusterInfrastructure"
 )
 
@@ -84,7 +85,7 @@ const (
 )
 
 const (
-	// InfrastructureAvailableCondition documents the deployment status of the playbooks for KubeforceMachine
+	// InfrastructureAvailableCondition documents the deployment status of the playbooks for KubeforceMachine.
 	InfrastructureAvailableCondition clusterv1.ConditionType = "InfrastructureAvailable"
 )
 
@@ -123,12 +124,12 @@ const (
 	AgentDeletedReason = "AgentDeleted"
 )
 
-// Conditions and condition Reasons for the object
+// Conditions and condition Reasons for the object.
 const (
-	// SynchronizationCondition documents the status of synchronization with a remote object
+	// SynchronizationCondition documents the status of synchronization with a remote object.
 	SynchronizationCondition clusterv1.ConditionType = "Synced"
 
-	// WaitingForObservedGenerationReason (Severity=Info)
+	// WaitingForObservedGenerationReason (Severity=Info).
 	WaitingForObservedGenerationReason = "WaitingForObservedGeneration"
 
 	// SynchronizationFailedReason (Severity=Error) documents a controller detecting

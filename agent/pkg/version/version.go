@@ -24,17 +24,17 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// Options is a struct to support version command
+// Options is a struct to support version command.
 type Options struct {
 	Output string
 }
 
-// NewOptions returns initialized Options
+// NewOptions returns initialized Options.
 func NewOptions() *Options {
 	return &Options{}
 }
 
-// Run executes version command
+// Run executes version command.
 func (o *Options) Run() error {
 	versionInfo := version.Get()
 

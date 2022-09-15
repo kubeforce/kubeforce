@@ -19,17 +19,16 @@ package repository
 import (
 	"context"
 	"io"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
+	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	. "github.com/onsi/gomega"
 )
 
 var _ FileGetter = &fakeFileGetter{}
@@ -91,14 +90,14 @@ func TestStorage_getFile_concurrently(t *testing.T) {
 	go func() {
 		f, err := fileGetter.GetFile(context.Background(), "file1.txt")
 		g.Expect(err).ShouldNot(HaveOccurred())
-		fileContent1, err = ioutil.ReadFile(f.Path)
+		fileContent1, err = os.ReadFile(f.Path)
 		g.Expect(err).ShouldNot(HaveOccurred())
 		wg.Done()
 	}()
 	go func() {
 		f, err := fileGetter.GetFile(context.Background(), "file1.txt")
 		g.Expect(err).ShouldNot(HaveOccurred())
-		fileContent2, err = ioutil.ReadFile(f.Path)
+		fileContent2, err = os.ReadFile(f.Path)
 		g.Expect(err).ShouldNot(HaveOccurred())
 		wg.Done()
 	}()

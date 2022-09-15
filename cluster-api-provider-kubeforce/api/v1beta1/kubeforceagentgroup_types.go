@@ -36,7 +36,7 @@ const (
 // +kubebuilder:printcolumn:name="Ready",type="boolean",JSONPath=".status.ready",description="KubeforceAgentGroup ready state"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of KubeforceAgentGroup"
 
-// KubeforceAgentGroup is the Schema for the kubeforceagentgroups API
+// KubeforceAgentGroup is the Schema for the kubeforceagentgroups API.
 type KubeforceAgentGroup struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -45,7 +45,7 @@ type KubeforceAgentGroup struct {
 	Status KubeforceAgentGroupStatus `json:"status,omitempty"`
 }
 
-// KubeforceAgentGroupSpec defines the desired state of KubeforceAgentGroup
+// KubeforceAgentGroupSpec defines the desired state of KubeforceAgentGroup.
 type KubeforceAgentGroupSpec struct {
 	// Addresses is addresses assigned to the agents created from this group.
 	// +optional
@@ -56,7 +56,7 @@ type KubeforceAgentGroupSpec struct {
 	Template KubeforceAgentTemplateSpec `json:"template,omitempty"`
 }
 
-// KubeforceAgentTemplateSpec describes the data a KubeforceAgent should have when created from a template
+// KubeforceAgentTemplateSpec describes the data a KubeforceAgent should have when created from a template.
 type KubeforceAgentTemplateSpec struct {
 	// Standard object's metadata.
 	// +optional
@@ -67,7 +67,7 @@ type KubeforceAgentTemplateSpec struct {
 	Spec KubeforceAgentSpec `json:"spec,omitempty"`
 }
 
-// KubeforceAgentGroupStatus defines the observed state of KubeforceAgentGroup
+// KubeforceAgentGroupStatus defines the observed state of KubeforceAgentGroup.
 type KubeforceAgentGroupStatus struct {
 	// Ready denotes that the agent is ready
 	// +optional
@@ -104,7 +104,7 @@ func (in *KubeforceAgentGroup) SetConditions(conditions clusterv1.Conditions) {
 
 //+kubebuilder:object:root=true
 
-// KubeforceAgentGroupList contains a list of KubeforceAgentGroup
+// KubeforceAgentGroupList contains a list of KubeforceAgentGroup.
 type KubeforceAgentGroupList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

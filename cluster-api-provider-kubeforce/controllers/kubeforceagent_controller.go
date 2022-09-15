@@ -22,26 +22,15 @@ import (
 	"os"
 	"time"
 
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/secret"
-
-	patchutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/patch"
-
 	certutil "github.com/cert-manager/cert-manager/pkg/api/util"
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
-	agentctrl "k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/prober"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/agent"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/repository"
-	stringutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/strings"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	capiutil "sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -53,9 +42,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-)
 
-var certMngGroupVersion = schema.GroupVersion{Group: "cert-manager.io", Version: "v1"}
+	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
+	agentctrl "k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/prober"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/agent"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/repository"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/secret"
+	patchutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/patch"
+	stringutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/strings"
+)
 
 // KubeforceAgentReconciler reconciles a KubeforceAgent object.
 type KubeforceAgentReconciler struct {
@@ -114,11 +110,11 @@ func (r *KubeforceAgentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		r.ProbeController.EnsureProbe(ctx, NewAgentProbeHandler(objectKey, r.Client, r.AgentClientCache), params)
 		probeStatus := r.ProbeController.GetCurrentStatus(objectKey.String())
 		if probeStatus == nil {
-			conditions.MarkUnknown(kfAgent, infrav1.Healthy, "UnknownProbeState", "")
+			conditions.MarkUnknown(kfAgent, infrav1.HealthyCondition, "UnknownProbeState", "")
 		} else if probeStatus.ProbeResult {
-			conditions.MarkTrue(kfAgent, infrav1.Healthy)
+			conditions.MarkTrue(kfAgent, infrav1.HealthyCondition)
 		} else {
-			conditions.MarkFalse(kfAgent, infrav1.Healthy, infrav1.ProbeFailedReason, clusterv1.ConditionSeverityInfo, probeStatus.Message)
+			conditions.MarkFalse(kfAgent, infrav1.HealthyCondition, infrav1.ProbeFailedReason, clusterv1.ConditionSeverityInfo, probeStatus.Message)
 		}
 	}
 
@@ -196,7 +192,7 @@ func (r *KubeforceAgentReconciler) reconcileDelete(ctx context.Context, kfAgent 
 		return ctrl.Result{}, err
 	}
 	if obj == nil {
-		if agent.IsReady(kfAgent) {
+		if agent.IsHealthy(kfAgent) {
 			objectKey := client.ObjectKeyFromObject(kfAgent)
 			clientset, err := r.AgentClientCache.GetClientSet(ctx, objectKey)
 			if err != nil {
@@ -262,7 +258,7 @@ func (r *KubeforceAgentReconciler) reconcileNormal(ctx context.Context, kfAgent 
 		return result, err
 	}
 	// wait until the agent is ready to connect
-	if !agent.IsReady(kfAgent) {
+	if !agent.IsHealthy(kfAgent) {
 		return ctrl.Result{}, nil
 	}
 	changedTLSCert, err := r.syncAgentTLSSecret(ctx, kfAgent, true)
@@ -409,7 +405,7 @@ func (r *KubeforceAgentReconciler) syncAgentClientSecret(ctx context.Context, kf
 }
 
 func (r *KubeforceAgentReconciler) reconcileAgentInfo(ctx context.Context, kfAgent *infrav1.KubeforceAgent) error {
-	if !agent.IsReady(kfAgent) || kfAgent.Status.AgentInfo != nil {
+	if !agent.IsHealthy(kfAgent) || kfAgent.Status.AgentInfo != nil {
 		return nil
 	}
 	clientset, err := r.AgentClientCache.GetClientSet(ctx, client.ObjectKeyFromObject(kfAgent))
@@ -587,7 +583,7 @@ func patchKubeforceAgent(ctx context.Context, patchHelper *patch.Helper, agent *
 	conditions.SetSummary(agent,
 		conditions.WithConditions(
 			infrav1.AgentInstalledCondition,
-			infrav1.Healthy,
+			infrav1.HealthyCondition,
 			infrav1.AgentTLSCondition,
 		),
 		conditions.WithStepCounterIf(agent.ObjectMeta.DeletionTimestamp.IsZero()),
@@ -601,7 +597,7 @@ func patchKubeforceAgent(ctx context.Context, patchHelper *patch.Helper, agent *
 		patch.WithOwnedConditions{Conditions: []clusterv1.ConditionType{
 			clusterv1.ReadyCondition,
 			infrav1.AgentInstalledCondition,
-			infrav1.Healthy,
+			infrav1.HealthyCondition,
 			infrav1.AgentTLSCondition,
 		}},
 	)

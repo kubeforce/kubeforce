@@ -31,14 +31,14 @@ type SysInfo struct {
 	Spec SysInfoSpec
 }
 
-// SysInfoSpec defines the system information
+// SysInfoSpec defines the system information.
 type SysInfoSpec struct {
 	// Network is the network information
 	// +optional
 	Network Network
 }
 
-// Network defines the network information
+// Network defines the network information.
 type Network struct {
 	// Hostname is the current hostname
 	Hostname string

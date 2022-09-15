@@ -23,9 +23,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/agent"
-	stringutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/strings"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -39,9 +36,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/agent"
+	stringutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/strings"
 )
 
-// KubeforceClusterReconciler reconciles a KubeforceCluster object
+// KubeforceClusterReconciler reconciles a KubeforceCluster object.
 type KubeforceClusterReconciler struct {
 	Client client.Client
 	Log    logr.Logger
@@ -52,7 +53,7 @@ type KubeforceClusterReconciler struct {
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=kubeforceclusters/finalizers,verbs=update
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters;clusters/status,verbs=get;list;update;patch;watch
 
-// Reconcile is part of the main kubernetes reconciliation loop
+// Reconcile is part of the main kubernetes reconciliation loop.
 func (r *KubeforceClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, rerr error) {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -159,7 +160,7 @@ func (r *KubeforceClusterReconciler) getExternalAddress(ctx context.Context, mac
 				}
 				return nil, errors.Wrapf(err, "unable to get agent for machine %s", kfMachine.Name)
 			}
-			if agent.IsReady(kfAgent) {
+			if agent.IsHealthy(kfAgent) {
 				address := stringutil.Find(stringutil.IsNotEmpty, kfAgent.Spec.Addresses.ExternalDNS, kfAgent.Spec.Addresses.ExternalIP)
 				adresses = append(adresses, address)
 			}
@@ -191,7 +192,7 @@ func (r *KubeforceClusterReconciler) reconcileControlPlaneEndpoint(ctx context.C
 		}
 	}
 
-	//delete ControlPlaneEndpoint in cluster
+	// delete ControlPlaneEndpoint in cluster
 	clusterPatchData := client.MergeFrom(cluster.DeepCopy())
 	cluster.Spec.ControlPlaneEndpoint.Port = 0
 	cluster.Spec.ControlPlaneEndpoint.Host = ""
@@ -249,7 +250,7 @@ func (r *KubeforceClusterReconciler) refreshControlPlaneEndpoint(ctx context.Con
 	return true, nil
 }
 
-func (r *KubeforceClusterReconciler) refreshAPIServers(ctx context.Context, cluster *infrav1.KubeforceCluster, controlPlaneMachines []infrav1.KubeforceMachine) error {
+func (r *KubeforceClusterReconciler) refreshAPIServers(_ context.Context, cluster *infrav1.KubeforceCluster, controlPlaneMachines []infrav1.KubeforceMachine) error {
 	apiServers := make([]string, 0, len(controlPlaneMachines))
 	for _, m := range controlPlaneMachines {
 		if m.Status.InternalIP != "" {
@@ -260,12 +261,6 @@ func (r *KubeforceClusterReconciler) refreshAPIServers(ctx context.Context, clus
 	cluster.Status.APIServers = apiServers
 
 	return nil
-}
-
-func sortKfMachinesByCreationTime(kfMachines []*infrav1.KubeforceMachine) {
-	sort.SliceStable(kfMachines, func(i, j int) bool {
-		return kfMachines[i].CreationTimestamp.Before(&kfMachines[j].CreationTimestamp)
-	})
 }
 
 func (r *KubeforceClusterReconciler) reconcileDelete(ctx context.Context, kubeforceCluster *infrav1.KubeforceCluster) (ctrl.Result, error) {

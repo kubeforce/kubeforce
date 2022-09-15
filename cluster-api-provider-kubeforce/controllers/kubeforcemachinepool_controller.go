@@ -23,8 +23,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/names"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
@@ -41,6 +39,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/names"
 )
 
 // KubeforceMachinePoolReconciler reconciles a KubeforceMachinePool object.
@@ -157,7 +158,7 @@ func (r *KubeforceMachinePoolReconciler) SetupWithManager(logger logr.Logger, mg
 	)
 }
 
-func (r *KubeforceMachinePoolReconciler) reconcileDelete(ctx context.Context, machinePool *expv1.MachinePool, kubeforceMachinePool *infrav1.KubeforceMachinePool) (ctrl.Result, error) {
+func (r *KubeforceMachinePoolReconciler) reconcileDelete(_ context.Context, _ *expv1.MachinePool, kubeforceMachinePool *infrav1.KubeforceMachinePool) (ctrl.Result, error) {
 	controllerutil.RemoveFinalizer(kubeforceMachinePool, infrav1.MachinePoolFinalizer)
 	return ctrl.Result{}, nil
 }
@@ -174,10 +175,7 @@ func (r *KubeforceMachinePoolReconciler) reconcileNormal(ctx context.Context, cl
 		return ctrl.Result{}, errors.Wrap(err, "unable to get machines by the machine pool")
 	}
 	desiredReplicas := int(*machinePool.Spec.Replicas)
-	desiredMachines, err := r.desiredMachines(cluster.Name, kubeforceMachinePool, desiredReplicas)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "unable to get machines by the machine pool")
-	}
+	desiredMachines := r.desiredMachines(cluster.Name, kubeforceMachinePool, desiredReplicas)
 	desiredMachineMap := machinesToMap(desiredMachines)
 	// delete machines
 	for _, machine := range machines {
@@ -264,7 +262,7 @@ func (r *KubeforceMachinePoolReconciler) machinesByMachinePool(ctx context.Conte
 	return machines, nil
 }
 
-func (r *KubeforceMachinePoolReconciler) desiredMachines(clusterName string, kubeforceMachinePool *infrav1.KubeforceMachinePool, replicas int) ([]*infrav1.KubeforceMachine, error) {
+func (r *KubeforceMachinePoolReconciler) desiredMachines(clusterName string, kubeforceMachinePool *infrav1.KubeforceMachinePool, replicas int) []*infrav1.KubeforceMachine {
 	machines := make([]*infrav1.KubeforceMachine, 0, replicas)
 	labels := buildKubeforceMachineLabels(kubeforceMachinePool.Spec.Template.ObjectMeta.Labels, clusterName)
 	for i := 0; i < replicas; i++ {
@@ -290,7 +288,7 @@ func (r *KubeforceMachinePoolReconciler) desiredMachines(clusterName string, kub
 		}
 		machines = append(machines, m)
 	}
-	return machines, nil
+	return machines
 }
 
 func getKubeforceMachinePoolProviderID(clusterName, kubeforceMachinePoolName string) string {

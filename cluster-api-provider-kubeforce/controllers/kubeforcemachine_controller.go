@@ -22,19 +22,8 @@ import (
 	"sort"
 	"time"
 
-	patchutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/patch"
-
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	clientset "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
-	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
-	agentctrl "k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/kubeadm"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/agent"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/ansible"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/assets"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/cloudinit"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/rand"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,9 +44,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	clientset "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
+	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
+	agentctrl "k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/kubeadm"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/agent"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/ansible"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/assets"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/cloudinit"
+	patchutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/patch"
 )
 
-// KubeforceMachineReconciler reconciles a KubeforceMachine object
+// KubeforceMachineReconciler reconciles a KubeforceMachine object.
 type KubeforceMachineReconciler struct {
 	Client           client.Client
 	Tracker          *remote.ClusterCacheTracker
@@ -81,11 +80,7 @@ func (r *KubeforceMachineReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		return ctrl.Result{}, err
 	}
-	ctx = context.WithValue(ctx, "id", rand.String(3))
-	r.Log.Info("reconciling",
-		"id", ctx.Value("id"),
-		"req", req,
-	)
+	r.Log.Info("reconciling KubeforceMachine", "req", req)
 
 	log := r.Log.WithValues("req", req)
 	// Initialize the patch helper
@@ -240,9 +235,8 @@ func (r *KubeforceMachineReconciler) reconcileNormal(ctx context.Context, cluste
 		log.Info("Waiting for the Bootstrap provider controller to set bootstrap data for KubeforceMachine")
 		conditions.MarkFalse(kubeforceMachine, bootstrapv1.DataSecretAvailableCondition, infrav1.WaitingForBootstrapDataReason, clusterv1.ConditionSeverityInfo, "")
 		return ctrl.Result{}, nil
-	} else {
-		conditions.MarkTrue(kubeforceMachine, bootstrapv1.DataSecretAvailableCondition)
 	}
+	conditions.MarkTrue(kubeforceMachine, bootstrapv1.DataSecretAvailableCondition)
 
 	// Usually a cloud provider will do this, but there is no kubeforce-cloud provider.
 	// Set ProviderID so the Cluster API Machine Controller can pull it
@@ -284,7 +278,7 @@ func (r *KubeforceMachineReconciler) reconcileAgentRef(ctx context.Context, kfMa
 			conditions.MarkFalse(kfMachine, infrav1.AgentProvisionedCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, msg)
 			return ctrl.Result{}, errors.New(msg)
 		}
-		if !agent.IsReady(kfAgent) {
+		if !agent.IsHealthy(kfAgent) {
 			conditions.MarkFalse(kfMachine, infrav1.AgentProvisionedCondition, infrav1.WaitingForAgentReason, clusterv1.ConditionSeverityInfo, "agent is not ready")
 			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 		}
@@ -329,7 +323,7 @@ func (r *KubeforceMachineReconciler) reconcileAgentRef(ctx context.Context, kfMa
 		return ctrl.Result{}, err
 	}
 	kfAgent := findAgent(agents, func(a *infrav1.KubeforceAgent) bool {
-		return a.Labels[infrav1.AgentMachineLabel] == "" && agent.IsReady(a)
+		return a.Labels[infrav1.AgentMachineLabel] == "" && agent.IsHealthy(a)
 	})
 	if kfAgent == nil {
 		conditions.MarkFalse(kfMachine, infrav1.AgentProvisionedCondition, infrav1.WaitingForAgentReason, clusterv1.ConditionSeverityInfo, "no free agent")
@@ -479,12 +473,12 @@ func (r *KubeforceMachineReconciler) reconcileCleaner(ctx context.Context, kfMac
 		return false, err
 	}
 	// wait 20 seconds for the agent to be ready
-	if !agent.IsReady(kfAgent) && time.Since(kfMachine.DeletionTimestamp.Time) < time.Second*20 {
+	if !agent.IsHealthy(kfAgent) && time.Since(kfMachine.DeletionTimestamp.Time) < time.Second*20 {
 		conditions.MarkFalse(kfMachine, infrav1.CleanersCompletedCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, "Wait for agent ready")
 		return false, nil
 	}
 
-	if agent.IsReady(kfAgent) {
+	if agent.IsHealthy(kfAgent) {
 		ready, err := r.reconcilePlaybooks(ctx, infrav1.CleanersCompletedCondition, kfMachine, kfAgent, r.cleanerGenerators())
 		if err != nil {
 			return false, err
@@ -550,14 +544,14 @@ func (r *KubeforceMachineReconciler) reconcilePlaybookDeployment(ctx context.Con
 		return false, err
 	}
 	if kfMachine.Status.Playbooks == nil {
-		kfMachine.Status.Playbooks = make(map[string]*infrav1.PlaybookRefs)
+		kfMachine.Status.Playbooks = make(map[string]*infrav1.PlaybookInfo)
 	}
 	playbookData, err := playbookGen.Generate(ctx)
 	if err != nil {
 		return false, err
 	}
 	if pd != nil {
-		kfMachine.Status.Playbooks[role] = &infrav1.PlaybookRefs{
+		kfMachine.Status.Playbooks[role] = &infrav1.PlaybookInfo{
 			Name:  pd.Name,
 			Phase: pd.Status.ExternalPhase,
 		}
@@ -578,7 +572,7 @@ func (r *KubeforceMachineReconciler) reconcilePlaybookDeployment(ctx context.Con
 	if err != nil {
 		return false, err
 	}
-	kfMachine.Status.Playbooks[role] = &infrav1.PlaybookRefs{
+	kfMachine.Status.Playbooks[role] = &infrav1.PlaybookInfo{
 		Name:  pd.Name,
 		Phase: pd.Status.ExternalPhase,
 	}
@@ -592,10 +586,10 @@ func (r *KubeforceMachineReconciler) reconcilePlaybook(ctx context.Context, kfMa
 		return false, err
 	}
 	if kfMachine.Status.Playbooks == nil {
-		kfMachine.Status.Playbooks = make(map[string]*infrav1.PlaybookRefs)
+		kfMachine.Status.Playbooks = make(map[string]*infrav1.PlaybookInfo)
 	}
 	if playbook != nil {
-		kfMachine.Status.Playbooks[role] = &infrav1.PlaybookRefs{
+		kfMachine.Status.Playbooks[role] = &infrav1.PlaybookInfo{
 			Name:  playbook.Name,
 			Phase: playbook.Status.ExternalPhase,
 		}
@@ -612,7 +606,7 @@ func (r *KubeforceMachineReconciler) reconcilePlaybook(ctx context.Context, kfMa
 	if err != nil {
 		return false, err
 	}
-	kfMachine.Status.Playbooks[role] = &infrav1.PlaybookRefs{
+	kfMachine.Status.Playbooks[role] = &infrav1.PlaybookInfo{
 		Name:  playbook.Name,
 		Phase: playbook.Status.ExternalPhase,
 	}
@@ -689,9 +683,7 @@ func (r *KubeforceMachineReconciler) updatePlaybookDeployment(ctx context.Contex
 	}
 
 	if changed {
-		r.Log.Info("updating PlaybookDeployment",
-			"id", ctx.Value("id"),
-			"name", pd.Name)
+		r.Log.Info("updating PlaybookDeployment", "key", client.ObjectKeyFromObject(pd))
 		err := r.Client.Patch(ctx, pd, patchObj)
 		if err != nil {
 			return false, errors.Wrapf(err, "failed to patch PlaybookDeployment")
@@ -732,9 +724,7 @@ func (r *KubeforceMachineReconciler) createPlaybookDeployment(ctx context.Contex
 			Paused: false,
 		},
 	}
-	r.Log.Info("creating PlaybookDeployment",
-		"id", ctx.Value("id"),
-		"name", pd.Name)
+	r.Log.Info("creating PlaybookDeployment", "key", client.ObjectKeyFromObject(pd))
 	err := r.Client.Create(ctx, pd)
 	if err != nil {
 		return nil, err
@@ -770,9 +760,7 @@ func (r *KubeforceMachineReconciler) createPlaybook(ctx context.Context, kfMachi
 			},
 		},
 	}
-	r.Log.Info("creating playbook",
-		"id", ctx.Value("id"),
-		"playbookName", p.Name)
+	r.Log.Info("creating playbook", "key", client.ObjectKeyFromObject(p))
 	err := r.Client.Create(ctx, p)
 	if err != nil {
 		return nil, err

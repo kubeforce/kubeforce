@@ -17,21 +17,22 @@ limitations under the License.
 package latest
 
 import (
-	"k3f.io/kubeforce/agent/pkg/config"
-	"k3f.io/kubeforce/agent/pkg/config/install"
-	"k3f.io/kubeforce/agent/pkg/config/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
+
+	"k3f.io/kubeforce/agent/pkg/config"
+	"k3f.io/kubeforce/agent/pkg/config/install"
+	"k3f.io/kubeforce/agent/pkg/config/v1alpha1"
 )
 
 // Version is the string that represents the current external default version.
 const Version = "v1alpha1"
 
 var (
-	// Codec is a Serializer for group config.agent.kubeforce.io
+	// Codec is a Serializer for group config.agent.kubeforce.io.
 	Codec runtime.Codec
-	// Scheme is a Scheme for group config.agent.kubeforce.io
+	// Scheme is a Scheme for group config.agent.kubeforce.io.
 	Scheme *runtime.Scheme
 )
 

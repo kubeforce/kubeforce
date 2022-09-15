@@ -21,17 +21,15 @@ import (
 	_ "embed"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-
-	configutils "k3f.io/kubeforce/agent/pkg/config/utils"
-
-	"k3f.io/kubeforce/agent/pkg/config"
 
 	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/pkg/errors"
 	"k8s.io/klog/v2"
+
+	"k3f.io/kubeforce/agent/pkg/config"
+	configutils "k3f.io/kubeforce/agent/pkg/config/utils"
 )
 
 var (
@@ -39,7 +37,7 @@ var (
 	agentServiceContent string
 )
 
-// Install installs a agent as the systemd service and runs it
+// Install installs a agent as the systemd service and runs it.
 func Install(ctx context.Context, cfg config.Config) error {
 	if err := stopService(ctx); err != nil {
 		return err
@@ -70,7 +68,7 @@ func copyBinary() error {
 	if err := os.MkdirAll(filepath.Dir(agentPath), 0755); err != nil {
 		return err
 	}
-	if _, err := copy(agentPath, exPath, 0755); err != nil {
+	if _, err := copyFile(agentPath, exPath, 0755); err != nil {
 		return err
 	}
 	if err := os.Chmod(agentPath, 0755); err != nil {
@@ -90,11 +88,11 @@ func copyTLSCerts(cfg config.ConfigSpec) error {
 		if _, err := saveFile(privateKeyFile, cfg.TLS.PrivateKeyData, 0o600, 0o777); err != nil {
 			return err
 		}
-	} else if len(cfg.TLS.CertFile) != 0 || len(cfg.TLS.PrivateKeyFile) != 0 {
-		if _, err := copy(certFile, cfg.TLS.CertFile, 0600); err != nil {
+	} else if cfg.TLS.CertFile != "" || cfg.TLS.PrivateKeyFile != "" {
+		if _, err := copyFile(certFile, cfg.TLS.CertFile, 0600); err != nil {
 			return err
 		}
-		if _, err := copy(privateKeyFile, cfg.TLS.PrivateKeyFile, 0600); err != nil {
+		if _, err := copyFile(privateKeyFile, cfg.TLS.PrivateKeyFile, 0600); err != nil {
 			return err
 		}
 	} else {
@@ -109,7 +107,7 @@ func copyClientCACert(cfg config.ConfigSpec) error {
 			return err
 		}
 	} else if len(cfg.Authentication.X509.ClientCAFile) > 0 {
-		if _, err := copy(clientCAFile, cfg.Authentication.X509.ClientCAFile, 0600); err != nil {
+		if _, err := copyFile(clientCAFile, cfg.Authentication.X509.ClientCAFile, 0600); err != nil {
 			return err
 		}
 	} else {
@@ -178,7 +176,7 @@ func stopService(ctx context.Context) error {
 }
 
 func createService(ctx context.Context) error {
-	if err := ioutil.WriteFile(servicePath, []byte(agentServiceContent), 0644); err != nil {
+	if err := os.WriteFile(servicePath, []byte(agentServiceContent), 0644); err != nil {
 		return err
 	}
 	conn, err := dbus.NewWithContext(ctx)
@@ -217,10 +215,10 @@ func saveFile(dst string, data []byte, dstMode os.FileMode, dirMode os.FileMode)
 	return nBytes, err
 }
 
-func copy(dst, src string, dstMode os.FileMode) (int64, error) {
+func copyFile(dst, src string, dstMode os.FileMode) error {
 	sourceFileStat, err := os.Stat(src)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	if !sourceFileStat.Mode().IsRegular() {
@@ -229,34 +227,15 @@ func copy(dst, src string, dstMode os.FileMode) (int64, error) {
 
 	source, err := os.Open(src)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer source.Close()
 
 	destination, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, dstMode)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer destination.Close()
-	nBytes, err := io.Copy(destination, source)
-	return nBytes, err
-}
-
-func systemdUnitRunning(name string) (bool, error) {
-	ctx := context.Background()
-	conn, err := dbus.NewWithContext(ctx)
-	defer conn.Close()
-	if err != nil {
-		return false, err
-	}
-	units, err := conn.ListUnitsContext(ctx)
-	if err != nil {
-		return false, err
-	}
-	for _, unit := range units {
-		if unit.Name == name+".service" {
-			return unit.ActiveState == "active", nil
-		}
-	}
-	return true, nil
+	_, err = io.Copy(destination, source)
+	return err
 }

@@ -21,18 +21,19 @@ import (
 
 	"k3f.io/kubeforce/agent/pkg/config"
 
-	"k3f.io/kubeforce/agent/pkg/apis/agent"
-	playbookrest "k3f.io/kubeforce/agent/pkg/registry/agent/playbook/rest"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/registry/generic"
 	genericregistry "k8s.io/apiserver/pkg/registry/generic/registry"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
+
+	"k3f.io/kubeforce/agent/pkg/apis/agent"
+	playbookrest "k3f.io/kubeforce/agent/pkg/registry/agent/playbook/rest"
 )
 
 var (
-	// GroupResource is group used to register these objects
+	// GroupResource is group used to register these objects.
 	GroupResource = agent.Resource("playbooks")
 )
 
@@ -63,7 +64,7 @@ func NewREST(scheme *runtime.Scheme, optsGetter generic.RESTOptionsGetter, cfg c
 	return &REST{store}, &StatusREST{store: &statusStore}, &playbookrest.LogREST{Store: store, PlaybookPath: cfg.PlaybookPath}, nil
 }
 
-// REST implements a RESTStorage for playbooks
+// REST implements a RESTStorage for playbooks.
 type REST struct {
 	*genericregistry.Store
 }
@@ -73,7 +74,7 @@ func (r *REST) ShortNames() []string {
 	return []string{"pb"}
 }
 
-// StatusREST implements the REST endpoint for changing the status of a pod.
+// StatusREST implements the REST endpoint for changing the status of a playbook.
 type StatusREST struct {
 	store *genericregistry.Store
 }
@@ -82,7 +83,7 @@ type StatusREST struct {
 func (r *StatusREST) Destroy() {
 }
 
-// New creates a new pod resource
+// New creates a new Playbook resource.
 func (r *StatusREST) New() runtime.Object {
 	return &agent.Playbook{}
 }

@@ -27,14 +27,14 @@ const (
 	ClusterFinalizer = "kubeforcecluster.infrastructure.cluster.x-k8s.io"
 )
 
-// KubeforceClusterSpec defines the desired state of KubeforceCluster
+// KubeforceClusterSpec defines the desired state of KubeforceCluster.
 type KubeforceClusterSpec struct {
 	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
 	// +optional
 	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`
 }
 
-// KubeforceClusterStatus defines the observed state of KubeforceCluster
+// KubeforceClusterStatus defines the observed state of KubeforceCluster.
 type KubeforceClusterStatus struct {
 	// Ready denotes that the cluster (infrastructure) is ready.
 	// +optional
@@ -56,7 +56,7 @@ type KubeforceClusterStatus struct {
 // +kubebuilder:resource:path=kubeforceclusters,scope=Namespaced,shortName=kfc
 // +kubebuilder:subresource:status
 
-// KubeforceCluster is the Schema for the kubeforceclusters API
+// KubeforceCluster is the Schema for the kubeforceclusters API.
 type KubeforceCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -77,7 +77,7 @@ func (c *KubeforceCluster) SetConditions(conditions clusterv1.Conditions) {
 
 //+kubebuilder:object:root=true
 
-// KubeforceClusterList contains a list of KubeforceCluster
+// KubeforceClusterList contains a list of KubeforceCluster.
 type KubeforceClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

@@ -22,18 +22,19 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
-	patchutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/patch"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/flowcontrol"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
+	patchutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/patch"
 )
 
 var _ manager.Runnable = &Initializer{}
 
-// Initializer initializes default k8s resources
+// Initializer initializes default k8s resources.
 type Initializer struct {
 	Log    logr.Logger
 	Client client.Client

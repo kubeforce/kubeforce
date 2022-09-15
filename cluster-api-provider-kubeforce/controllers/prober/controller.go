@@ -29,10 +29,10 @@ import (
 type ProbeResult bool
 
 const (
-	// ResultSuccess is encoded as "true" (type Result)
+	// ResultSuccess is encoded as "true" (type Result).
 	ResultSuccess ProbeResult = true
 
-	// ResultFailure is encoded as "false" (type Result)
+	// ResultFailure is encoded as "false" (type Result).
 	ResultFailure ProbeResult = false
 )
 
@@ -54,7 +54,7 @@ var ProberResults = metrics.NewCounterVec(
 		"result"},
 )
 
-// ProbeParams describes a health check params
+// ProbeParams describes a health check params.
 type ProbeParams struct {
 	// Number of seconds after which the probe times out.
 	// Defaults to 3 second. Minimum value is 1.

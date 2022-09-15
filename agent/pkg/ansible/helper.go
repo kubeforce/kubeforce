@@ -30,7 +30,7 @@ const (
 	pipPackage = "python3-pip"
 )
 
-// GetHelper returns an ansible helper
+// GetHelper returns an ansible helper.
 func GetHelper() Helper {
 	return singleton
 }
@@ -40,7 +40,7 @@ var singleton Helper = &helper{
 	mu:               sync.Mutex{},
 }
 
-// Helper describes interface for ansible helper
+// Helper describes interface for ansible helper.
 type Helper interface {
 	// EnsureAnsible installs Ansible if it is not on the host.
 	EnsureAnsible(ctx context.Context) error

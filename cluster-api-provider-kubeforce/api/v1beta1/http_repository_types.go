@@ -33,7 +33,7 @@ const (
 // +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.spec.url`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of KubeforceAgent"
 
-// HTTPRepository is the Schema for the httprepositories API
+// HTTPRepository is the Schema for the httprepositories API.
 type HTTPRepository struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -64,7 +64,7 @@ type HTTPRepositorySpec struct {
 
 //+kubebuilder:object:root=true
 
-// HTTPRepositoryList contains a list of HTTPRepository
+// HTTPRepositoryList contains a list of HTTPRepository.
 type HTTPRepositoryList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

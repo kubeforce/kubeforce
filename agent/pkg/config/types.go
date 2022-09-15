@@ -24,13 +24,13 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Config defines agent configuration
+// Config defines agent configuration.
 type Config struct {
 	metav1.TypeMeta
 	Spec ConfigSpec
 }
 
-// ConfigSpec defines agent configuration
+// ConfigSpec defines agent configuration.
 type ConfigSpec struct {
 	// Port is the port for the Agent to serve on.
 	Port int
@@ -46,6 +46,7 @@ type ConfigSpec struct {
 	PlaybookPath string
 }
 
+// TLS describes the tls certificate.
 type TLS struct {
 	// CertFile is the file containing x509 Certificate for HTTPS.
 	// +optional
@@ -88,7 +89,7 @@ type AgentX509Authentication struct {
 	ClientCAData []byte
 }
 
-// EtcdConfig defines etcd configuration
+// EtcdConfig defines etcd configuration.
 type EtcdConfig struct {
 	// DataDir contains the path to the directory for storing etcd data.
 	DataDir string

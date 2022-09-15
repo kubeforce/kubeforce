@@ -17,18 +17,19 @@ limitations under the License.
 package utils
 
 import (
-	"io/ioutil"
+	"os"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"k3f.io/kubeforce/agent/pkg/config"
 	"k3f.io/kubeforce/agent/pkg/config/latest"
 	"k3f.io/kubeforce/agent/pkg/config/validation"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// LoadFromFile deserializes the contents from file into Config object
+// LoadFromFile deserializes the contents from file into Config object.
 func LoadFromFile(filepath string) (*config.Config, error) {
-	bytes, err := ioutil.ReadFile(filepath)
+	bytes, err := os.ReadFile(filepath)
 	if err != nil {
 		return nil, err
 	}

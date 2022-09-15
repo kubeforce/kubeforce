@@ -20,25 +20,23 @@ import (
 	"context"
 	"sort"
 
-	"k8s.io/apiserver/pkg/storage/names"
-	"k8s.io/utils/pointer"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	"k3f.io/kubeforce/agent/pkg/util/checksum"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	"k3f.io/kubeforce/agent/pkg/apis/agent/v1alpha1"
-	"k3f.io/kubeforce/agent/pkg/util/conditions"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apiserver/pkg/storage/names"
+	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
+	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"k3f.io/kubeforce/agent/pkg/apis/agent/v1alpha1"
+	"k3f.io/kubeforce/agent/pkg/util/checksum"
+	"k3f.io/kubeforce/agent/pkg/util/conditions"
 )
 
 const (

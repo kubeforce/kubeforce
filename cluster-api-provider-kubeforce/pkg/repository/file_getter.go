@@ -20,11 +20,16 @@ import (
 	"context"
 )
 
+// File describes the file that can be obtained from the FileGetter.
 type File struct {
+	// Path is the full path to the cached file in the file system.
 	Path string
 }
 
+// FileGetter is an interface to get files from different sources.
 type FileGetter interface {
+	// GetFile returns file by relativePath.
 	GetFile(ctx context.Context, relativePath string) (*File, error)
+	// RemoveCache removes all files from the cache.
 	RemoveCache() error
 }

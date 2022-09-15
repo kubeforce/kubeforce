@@ -17,16 +17,17 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"k3f.io/kubeforce/agent/pkg/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"k3f.io/kubeforce/agent/pkg/config"
 )
 
-// GroupName is the group name use in this package
+// GroupName is the group name use in this package.
 const GroupName = config.GroupName
 
-// SchemeGroupVersion is group version used to register these objects
+// SchemeGroupVersion is group version used to register these objects.
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
 
 var (
@@ -47,7 +48,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	return nil
 }
 
-// Resource takes an unqualified resource and returns a Group qualified GroupResource
+// Resource takes an unqualified resource and returns a Group qualified GroupResource.
 func Resource(resource string) schema.GroupResource {
 	return SchemeGroupVersion.WithResource(resource).GroupResource()
 }

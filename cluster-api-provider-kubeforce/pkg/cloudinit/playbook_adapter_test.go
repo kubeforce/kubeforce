@@ -20,11 +20,9 @@ import (
 	"strings"
 	"testing"
 
-	kubeadmv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
-
 	"github.com/google/go-cmp/cmp"
-
 	. "github.com/onsi/gomega"
+	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 )
 
 const cloudData = `
@@ -576,12 +574,12 @@ const playbook = `
 
 func TestRealUseCase(t *testing.T) {
 	g := NewWithT(t)
-	adapter := NewAnsibleAdapter(kubeadmv1.KubeadmConfigSpec{})
+	adapter := NewAnsibleAdapter(bootstrapv1.KubeadmConfigSpec{})
 	resultPlaybook, err := adapter.userDataToPlaybook([]byte(cloudData))
 	g.Expect(err).NotTo(HaveOccurred())
 	expectedPlaybook := strings.TrimSpace(playbook)
 	gotPlaybook := strings.TrimSpace(string(resultPlaybook))
-	//ioutil.WriteFile("cloud-init.yaml", resultPlaybook, 0666)
+	// os.WriteFile("cloud-init.yaml", resultPlaybook, 0666)
 	if !cmp.Equal(expectedPlaybook, gotPlaybook) {
 		t.Errorf("playbook is not as expected,\ngot: %s\ndiff: %s", gotPlaybook, cmp.Diff(expectedPlaybook, gotPlaybook))
 	}

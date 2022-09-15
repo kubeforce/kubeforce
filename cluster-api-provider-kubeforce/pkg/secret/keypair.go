@@ -30,6 +30,7 @@ type KeyPair struct {
 	CA, Cert, Key []byte
 }
 
+// LookupKeyPair looks for a KeyPair that is stored as a secret.
 func LookupKeyPair(ctx context.Context, ctrlclient client.Client, key client.ObjectKey) (*KeyPair, error) {
 	// Look up each certificate as a secret and populate the certificate/key
 	s := &corev1.Secret{}

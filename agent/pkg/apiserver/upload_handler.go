@@ -37,7 +37,7 @@ const (
 	paramCreateDir = "createDir"
 )
 
-// NewUploadHandler creates a new handler for uploading the files to the host
+// NewUploadHandler creates a new handler for uploading the files to the host.
 func NewUploadHandler() *UploadHandler {
 	return &UploadHandler{
 		// Maximum upload of 512 MB files
@@ -45,7 +45,7 @@ func NewUploadHandler() *UploadHandler {
 	}
 }
 
-// UploadHandler is a handler for uploading the files to the host
+// UploadHandler is a handler for uploading the files to the host.
 type UploadHandler struct {
 	maxMemory int64
 }
@@ -108,10 +108,10 @@ func (h *UploadHandler) uploadFile(r *http.Request) error {
 	}
 
 	dst, err := os.OpenFile(targetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, fileMode)
-	defer dst.Close()
 	if err != nil {
 		return errors.Errorf("unable to create a file %q", targetPath)
 	}
+	defer dst.Close()
 
 	// Copy the uploaded file to the created file on the filesystem
 	if _, err := io.Copy(dst, file); err != nil {

@@ -16,6 +16,7 @@ limitations under the License.
 
 package strings
 
+// Find returns the first match.
 func Find(fn FilterFn, vars ...string) string {
 	for _, s := range vars {
 		if fn(s) {
@@ -25,12 +26,15 @@ func Find(fn FilterFn, vars ...string) string {
 	return ""
 }
 
+// FilterFn is a function for finding matches.
 type FilterFn func(s string) bool
 
+// IsNotEmpty return true if value is not empty.
 func IsNotEmpty(s string) bool {
 	return s != ""
 }
 
+// Filter returns the all matches.
 func Filter(fn FilterFn, vars ...string) []string {
 	result := make([]string, 0, len(vars))
 	for _, s := range vars {

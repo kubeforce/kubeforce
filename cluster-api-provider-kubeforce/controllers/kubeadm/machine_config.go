@@ -23,7 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	kubeadmv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
+	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -58,14 +58,14 @@ func (m *machineConfig) GetBootstrapData(ctx context.Context) ([]byte, error) {
 	return value, nil
 }
 
-func (m *machineConfig) GetKubeadmConfig(ctx context.Context) (*kubeadmv1.KubeadmConfig, error) {
+func (m *machineConfig) GetKubeadmConfig(ctx context.Context) (*bootstrapv1.KubeadmConfig, error) {
 	if m.machine.Spec.Bootstrap.ConfigRef == nil {
 		return nil, errors.New("unable to get bootstrap config ref: linked Machine's bootstrap.configRef is nil")
 	}
 	if m.machine.Spec.Bootstrap.ConfigRef.Kind != "KubeadmConfig" {
 		return nil, errors.Errorf("unknown type of bootstrap config: %v", m.machine.Spec.Bootstrap.ConfigRef.Kind)
 	}
-	cfg := &kubeadmv1.KubeadmConfig{}
+	cfg := &bootstrapv1.KubeadmConfig{}
 	key := client.ObjectKey{Namespace: m.machine.Spec.Bootstrap.ConfigRef.Namespace, Name: m.machine.Spec.Bootstrap.ConfigRef.Name}
 	if err := m.client.Get(ctx, key, cfg); err != nil {
 		return nil, errors.Wrapf(err, "failed to retrieve bootstrap config for Machine %s/%s", m.machine.GetNamespace(), m.machine.GetName())

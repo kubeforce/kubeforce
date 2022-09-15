@@ -16,7 +16,7 @@ limitations under the License.
 
 package v1alpha1
 
-// Conditions and Reasons for the Playbook object
+// Conditions and Reasons for the Playbook object.
 const (
 	// PlaybookExecutionCondition documents the execution status of the playbook.
 	PlaybookExecutionCondition ConditionType = "Execution"
@@ -31,9 +31,9 @@ const (
 	BackoffLimitExceededReason = "BackoffLimitExceeded"
 
 	// PlaybookExecutionFailedReason documents a Playbook detecting
-	// an error while execution the playbook
+	// an error while execution the playbook.
 	PlaybookExecutionFailedReason = "ExecutionFailed"
 
-	// PlaybookPreparationFailedReason documents a Playbook when an error occurs during prepare phase
+	// PlaybookPreparationFailedReason documents a Playbook when an error occurs during prepare phase.
 	PlaybookPreparationFailedReason = "PreparationFailed"
 )

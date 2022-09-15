@@ -21,15 +21,13 @@ import (
 	"testing"
 	"time"
 
-	"k3f.io/kubeforce/agent/pkg/util/conditions"
-
-	clientset "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
-
+	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	. "github.com/onsi/gomega"
 	"k3f.io/kubeforce/agent/pkg/apis/agent/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientset "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
+	"k3f.io/kubeforce/agent/pkg/util/conditions"
 )
 
 var simpePlaybook = `

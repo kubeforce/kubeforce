@@ -26,16 +26,17 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"k3f.io/kubeforce/agent/pkg/apiserver"
-	"k3f.io/kubeforce/agent/pkg/config"
-	configutils "k3f.io/kubeforce/agent/pkg/config/utils"
-	"k3f.io/kubeforce/agent/pkg/controllers"
-	"k3f.io/kubeforce/agent/pkg/manager"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlzap "sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"k3f.io/kubeforce/agent/pkg/apiserver"
+	"k3f.io/kubeforce/agent/pkg/config"
+	configutils "k3f.io/kubeforce/agent/pkg/config/utils"
+	"k3f.io/kubeforce/agent/pkg/controllers"
+	"k3f.io/kubeforce/agent/pkg/manager"
 )
 
 // ServiceCmd represents the Service command

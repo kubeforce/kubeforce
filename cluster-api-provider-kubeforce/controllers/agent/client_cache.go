@@ -25,21 +25,21 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	agentclient "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
-	agentScheme "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned/scheme"
-	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/agent"
 	"k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+
+	agentclient "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
+	agentScheme "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned/scheme"
+	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/agent"
 )
 
 type ClientCache struct {
-	log                   logr.Logger
-	clientUncachedObjects []client.Object
-	client                client.Client
+	log    logr.Logger
+	client client.Client
 
 	lock          sync.RWMutex
 	clientHolders map[client.ObjectKey]*clientHolder

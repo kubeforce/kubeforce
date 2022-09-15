@@ -21,23 +21,24 @@ import (
 	"os"
 
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/prober"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/repository"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	kubeadmv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
+	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	"sigs.k8s.io/cluster-api/controllers/remote"
-	expclusterv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
+	expv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers"
+	agentctrl "k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/prober"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/repository"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -48,9 +49,9 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(expclusterv1.AddToScheme(scheme))
+	utilruntime.Must(expv1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
-	utilruntime.Must(kubeadmv1.AddToScheme(scheme))
+	utilruntime.Must(bootstrapv1.AddToScheme(scheme))
 	utilruntime.Must(certv1.AddToScheme(scheme))
 
 	utilruntime.Must(infrav1.AddToScheme(scheme))
@@ -103,13 +104,13 @@ func main() {
 
 	ctx := ctrl.SetupSignalHandler()
 
-	agentClientCache, err := agent.NewClientCache(mgr)
+	agentClientCache, err := agentctrl.NewClientCache(mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to create agent client cache")
 		os.Exit(1)
 	}
 	storage := repository.NewStorage(logger.WithName("storage"), "/var/lib/kubeforce/storage")
-	if err = (&agent.CacheReconciler{
+	if err = (&agentctrl.CacheReconciler{
 		Client:      mgr.GetClient(),
 		ClientCache: agentClientCache,
 	}).SetupWithManager(mgr, controller.Options{}); err != nil {

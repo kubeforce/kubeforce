@@ -21,13 +21,12 @@ import (
 	"testing"
 	"time"
 
-	clientset "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
-
+	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	. "github.com/onsi/gomega"
 	"k3f.io/kubeforce/agent/pkg/apis/agent/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientset "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
 )
 
 func TestSuccessfulPlaybookDeployment(t *testing.T) {

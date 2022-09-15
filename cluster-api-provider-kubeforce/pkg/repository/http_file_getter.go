@@ -28,7 +28,7 @@ import (
 	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
 )
 
-// NewHTTPFileGetter creates a FileGetter for HTTPRepository
+// NewHTTPFileGetter creates a FileGetter for HTTPRepository.
 func NewHTTPFileGetter(s *Storage, r infrav1.HTTPRepository) FileGetter {
 	return &HTTPFileGetter{
 		repository: r,
@@ -81,7 +81,7 @@ func (g *HTTPFileGetter) download(url string) downloader {
 			ctx, cancelFunc = context.WithTimeout(ctx, g.repository.Spec.Timeout.Duration)
 			defer cancelFunc()
 		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 		if err != nil {
 			return fmt.Errorf("unable to create request(GET): %q", url)
 		}

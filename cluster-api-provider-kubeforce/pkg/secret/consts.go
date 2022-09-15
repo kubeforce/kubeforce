@@ -28,12 +28,12 @@ const (
 	// TLSPrivateKeyKey is the key used to store a TLS certificate in the secret's data field.
 	TLSPrivateKeyKey = corev1.TLSPrivateKeyKey
 
-	// SSHAuthPrivateKey is the key of the required SSH private key for SecretTypeSSHAuth secrets
+	// SSHAuthPrivateKey is the key of the required SSH private key for SecretTypeSSHAuth secrets.
 	SSHAuthPrivateKey = corev1.SSHAuthPrivateKey
 
-	// SSHAuthPassword is the password of the SSH configuration
+	// SSHAuthPassword is the password of the SSH configuration.
 	SSHAuthPassword = "ssh-password"
 
-	// SSHAuthPassphrase is the passphrase of the SSH private key
+	// SSHAuthPassphrase is the passphrase of the SSH private key.
 	SSHAuthPassphrase = "ssh-passphrase"
 )

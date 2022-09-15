@@ -19,21 +19,20 @@ package rest
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"github.com/pkg/errors"
-
-	"k3f.io/kubeforce/agent/pkg/apis/agent"
-	"k3f.io/kubeforce/agent/pkg/apis/agent/validation"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	genericregistry "k8s.io/apiserver/pkg/registry/generic/registry"
 	"k8s.io/apiserver/pkg/registry/rest"
+
+	"k3f.io/kubeforce/agent/pkg/apis/agent"
+	"k3f.io/kubeforce/agent/pkg/apis/agent/validation"
 )
 
-// LogREST implements the log endpoint for a Playbook
+// LogREST implements the log endpoint for a Playbook resource.
 type LogREST struct {
 	PlaybookPath string
 	Store        *genericregistry.Store
@@ -43,10 +42,10 @@ type LogREST struct {
 func (r *LogREST) Destroy() {
 }
 
-// LogREST implements GetterWithOptions
+// LogREST implements GetterWithOptions.
 var _ = rest.GetterWithOptions(&LogREST{})
 
-// New creates a new Playbook log options object
+// New creates a new Playbook log options object.
 func (r *LogREST) New() runtime.Object {
 	return &agent.Playbook{}
 }
@@ -68,9 +67,8 @@ func (r *LogREST) ProducesObject(verb string) interface{} {
 	return ""
 }
 
-// Get retrieves a runtime.Object that will stream the contents of the playbook log
+// Get retrieves a runtime.Object that will stream the contents of the playbook log.
 func (r *LogREST) Get(ctx context.Context, name string, opts runtime.Object) (runtime.Object, error) {
-
 	logOpts, ok := opts.(*agent.PlaybookLogOptions)
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
@@ -100,7 +98,7 @@ func (r *LogREST) getLogFilePath(name string, opts *agent.PlaybookLogOptions) (s
 	if !info.IsDir() {
 		return "", errors.Errorf("unable to find logs directory")
 	}
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return "", errors.Wrap(err, "unable to read logs directory")
 	}
@@ -116,12 +114,12 @@ func (r *LogREST) getLogFilePath(name string, opts *agent.PlaybookLogOptions) (s
 	return filepath.Join(r.PlaybookPath, name, "logs", files[0].Name()), nil
 }
 
-// NewGetOptions creates a new options object
+// NewGetOptions creates a new options object.
 func (r *LogREST) NewGetOptions() (runtime.Object, bool, string) {
 	return &agent.PlaybookLogOptions{}, false, ""
 }
 
-// OverrideMetricsVerb override the GET verb to CONNECT for playbook log resource
+// OverrideMetricsVerb override the GET verb to CONNECT for playbook log resource.
 func (r *LogREST) OverrideMetricsVerb(oldVerb string) (newVerb string) {
 	newVerb = oldVerb
 

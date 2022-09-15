@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package patch implements patch utilities.
 package patch
 
 import (
@@ -23,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// HasChanges checks the patch data to determine if this object has changes or not
+// HasChanges checks the patch data to determine if this object has changes or not.
 func HasChanges(patchObj client.Patch, obj client.Object) (bool, error) {
 	diff, err := patchObj.Data(obj)
 	if err != nil {

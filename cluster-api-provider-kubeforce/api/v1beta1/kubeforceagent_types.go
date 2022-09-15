@@ -27,7 +27,7 @@ const (
 	// removing it from the apiserver.
 	AgentFinalizer = "kubeforceagent.infrastructure.cluster.x-k8s.io"
 
-	// AgentControllerLabel is a name of the agent group controller
+	// AgentControllerLabel is a name of the agent group controller.
 	AgentControllerLabel = "kubeforceagent.infrastructure.cluster.x-k8s.io/group-name"
 
 	// AgentMachineLabel is a name of the KubeforceMachine using this agent.
@@ -49,7 +49,7 @@ const (
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.agentInfo.version",description="Installed agent version"
 // +kubebuilder:printcolumn:name="Platform",type="string",priority=1,JSONPath=".status.agentInfo.platform",description="Platform architecture information"
 
-// KubeforceAgent is the Schema for the kubeforceagents API
+// KubeforceAgent is the Schema for the kubeforceagents API.
 type KubeforceAgent struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -58,7 +58,7 @@ type KubeforceAgent struct {
 	Status KubeforceAgentStatus `json:"status,omitempty"`
 }
 
-// KubeforceAgentSpec defines the desired state of KubeforceAgent
+// KubeforceAgentSpec defines the desired state of KubeforceAgent.
 type KubeforceAgentSpec struct {
 	// Installed is true when the agent has been installed on the host
 	// +optional
@@ -73,12 +73,12 @@ type KubeforceAgentSpec struct {
 	// +optional
 	Addresses *Addresses `json:"addresses,omitempty"`
 
-	// System
+	// System is the system params for the host.
 	// +kubebuilder:default:={arch: "amd64", os:"linux"}
 	// +optional
 	System SystemParams `json:"system,omitempty"`
 
-	//SSH
+	// SSH is a params for ssh connection.
 	// +optional
 	SSH SSHParams `json:"ssh,omitempty"`
 
@@ -87,6 +87,7 @@ type KubeforceAgentSpec struct {
 	Config AgentConfigSpec `json:"config"`
 }
 
+// AgentSource describes the source from where the agent will be installed and its version.
 type AgentSource struct {
 	// RepoRef specifies a repository of the agent.
 	// +kubebuilder:default:={kind: "HTTPRepository", name:"github", namespace: "kubeforce-system"}
@@ -101,7 +102,7 @@ type AgentSource struct {
 	Version string `json:"version,omitempty"`
 }
 
-// AgentConfigSpec is an agent configuration
+// AgentConfigSpec is an agent configuration.
 type AgentConfigSpec struct {
 	// CertTemplate is a template for agent certificate.
 	CertTemplate CertificateTemplate `json:"certTemplate"`
@@ -110,7 +111,7 @@ type AgentConfigSpec struct {
 	Authentication AgentAuthentication `json:"authentication"`
 }
 
-// CertificateTemplate is a template for Certificate object
+// CertificateTemplate is a template for Certificate object.
 type CertificateTemplate struct {
 	// IssuerRef is a reference to the issuer for this certificate.
 	IssuerRef CertObjectReference `json:"issuerRef"`
@@ -189,7 +190,7 @@ type CertificatePrivateKey struct {
 	Size int `json:"size,omitempty"`
 }
 
-// AgentAuthentication is configuration for agent authrntication
+// AgentAuthentication is configuration for agent authrntication.
 type AgentAuthentication struct {
 	// X509 contains settings related to x509 client certificate authentication
 	// +optional
@@ -201,6 +202,7 @@ type AgentX509Authentication struct {
 	ClientSecret string `json:"clientSecret"`
 }
 
+// SystemParams describes the system of the host.
 type SystemParams struct {
 	// Arch is GOARCH for current node.
 	// +kubebuilder:default="amd64"
@@ -212,12 +214,15 @@ type SystemParams struct {
 	Os string `json:"os,omitempty"`
 }
 
+// SSHParams describes the parameters for connecting via ssh.
 type SSHParams struct {
 	// Port is the port for ssh connection.
-	// Default: 22
+	// +kubebuilder:default="22"
 	// +optional
-	Port       int    `json:"port,omitempty"`
-	Username   string `json:"username,omitempty"`
+	Port int `json:"port,omitempty"`
+	// Username is a name of user to connect via ssh.
+	Username string `json:"username,omitempty"`
+	// SecretName is the name of the secret that stores the password or private ssh key.
 	SecretName string `json:"secretName,omitempty"`
 }
 
@@ -235,7 +240,7 @@ type Addresses struct {
 	InternalDNS string `json:"internalDNS,omitempty"`
 }
 
-// KubeforceAgentStatus defines the observed state of KubeforceAgent
+// KubeforceAgentStatus defines the observed state of KubeforceAgent.
 type KubeforceAgentStatus struct {
 	// Phase represents the current phase of agent actuation.
 	// E.g. Pending, Running, Terminating, Failed etc.
@@ -271,7 +276,7 @@ type KubeforceAgentStatus struct {
 	AgentInfo *AgentInfo `json:"agentInfo,omitempty"`
 }
 
-// AgentInfo is information that describes the installed agent
+// AgentInfo is information that describes the installed agent.
 type AgentInfo struct {
 	// Version reported by the agent.
 	Version string `json:"version"`
@@ -297,7 +302,7 @@ func (in *KubeforceAgent) SetConditions(conditions clusterv1.Conditions) {
 
 //+kubebuilder:object:root=true
 
-// KubeforceAgentList contains a list of KubeforceAgent
+// KubeforceAgentList contains a list of KubeforceAgent.
 type KubeforceAgentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

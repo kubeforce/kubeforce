@@ -28,7 +28,7 @@ type SysInfoExpansion interface {
 	Get(ctx context.Context) (*v1alpha1.SysInfo, error)
 }
 
-// Get constructs a request for getting the system information from the host
+// Get constructs a request for getting the system information from the host.
 func (c *sysInfos) Get(ctx context.Context) (*v1alpha1.SysInfo, error) {
 	result := &v1alpha1.SysInfo{}
 	err := c.client.Get().

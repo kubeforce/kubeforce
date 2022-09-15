@@ -22,7 +22,7 @@ package v1beta1
 type AgentPhase string
 
 const (
-	// AgentPhasePending is the first state an Agent is assigned by
+	// AgentPhasePending is the first state an Agent is assigned by.
 	AgentPhasePending AgentPhase = "Pending"
 
 	// AgentPhaseProvisioning is the state when the

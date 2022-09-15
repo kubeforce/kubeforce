@@ -21,13 +21,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// GroupName is the group name use in this package
+// GroupName is the group name use in this package.
 const GroupName = "config.agent.kubeforce.io"
 
-// SchemeGroupVersion is group version used to register these objects
+// SchemeGroupVersion is group version used to register these objects.
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: runtime.APIVersionInternal}
 
-// Kind takes an unqualified kind and returns back a Group qualified GroupKind
+// Kind takes an unqualified kind and returns back a Group qualified GroupKind.
 func Kind(kind string) schema.GroupKind {
 	return SchemeGroupVersion.WithKind(kind).GroupKind()
 }
@@ -38,8 +38,10 @@ func Resource(resource string) schema.GroupResource {
 }
 
 var (
+	// SchemeBuilder stores functions to add things to a scheme.
 	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
-	AddToScheme   = SchemeBuilder.AddToScheme
+	// AddToScheme applies all stored functions t oa scheme.
+	AddToScheme = SchemeBuilder.AddToScheme
 )
 
 // Adds the list of known types to the given scheme.

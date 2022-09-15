@@ -29,9 +29,6 @@ import (
 	"github.com/apenella/go-ansible/pkg/playbook"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	"k3f.io/kubeforce/agent/pkg/ansible"
-	"k3f.io/kubeforce/agent/pkg/apis/agent/v1alpha1"
-	"k3f.io/kubeforce/agent/pkg/util/conditions"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -39,6 +36,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
+
+	"k3f.io/kubeforce/agent/pkg/ansible"
+	"k3f.io/kubeforce/agent/pkg/apis/agent/v1alpha1"
+	"k3f.io/kubeforce/agent/pkg/util/conditions"
 )
 
 const (
@@ -48,9 +49,9 @@ const (
 )
 
 var (
-	// DefaultJobBackOff is the default backoff period
+	// DefaultJobBackOff is the default backoff period.
 	DefaultJobBackOff = 10 * time.Second
-	// MaxJobBackOff is the max backoff period
+	// MaxJobBackOff is the max backoff period.
 	MaxJobBackOff = 360 * time.Second
 )
 

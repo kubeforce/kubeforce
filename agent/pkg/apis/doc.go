@@ -16,4 +16,5 @@ limitations under the License.
 
 // +domain=kubeforce.io
 
+// Package apis contains all groups of the "kubeforce.io" domain
 package apis

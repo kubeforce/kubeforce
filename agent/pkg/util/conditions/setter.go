@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"time"
 
-	"k3f.io/kubeforce/agent/pkg/apis/agent/v1alpha1"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"k3f.io/kubeforce/agent/pkg/apis/agent/v1alpha1"
 )
 
 // Setter interface defines methods that a Cluster API object should implement in order to

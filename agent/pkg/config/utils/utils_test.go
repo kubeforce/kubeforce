@@ -23,8 +23,9 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"k3f.io/kubeforce/agent/pkg/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"k3f.io/kubeforce/agent/pkg/config"
 )
 
 var (
