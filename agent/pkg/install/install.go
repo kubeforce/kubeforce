@@ -68,7 +68,7 @@ func copyBinary() error {
 	if err := os.MkdirAll(filepath.Dir(agentPath), 0755); err != nil {
 		return err
 	}
-	if _, err := copyFile(agentPath, exPath, 0755); err != nil {
+	if err := copyFile(agentPath, exPath, 0755); err != nil {
 		return err
 	}
 	if err := os.Chmod(agentPath, 0755); err != nil {
@@ -89,10 +89,10 @@ func copyTLSCerts(cfg config.ConfigSpec) error {
 			return err
 		}
 	} else if cfg.TLS.CertFile != "" || cfg.TLS.PrivateKeyFile != "" {
-		if _, err := copyFile(certFile, cfg.TLS.CertFile, 0600); err != nil {
+		if err := copyFile(certFile, cfg.TLS.CertFile, 0600); err != nil {
 			return err
 		}
-		if _, err := copyFile(privateKeyFile, cfg.TLS.PrivateKeyFile, 0600); err != nil {
+		if err := copyFile(privateKeyFile, cfg.TLS.PrivateKeyFile, 0600); err != nil {
 			return err
 		}
 	} else {
@@ -107,7 +107,7 @@ func copyClientCACert(cfg config.ConfigSpec) error {
 			return err
 		}
 	} else if len(cfg.Authentication.X509.ClientCAFile) > 0 {
-		if _, err := copyFile(clientCAFile, cfg.Authentication.X509.ClientCAFile, 0600); err != nil {
+		if err := copyFile(clientCAFile, cfg.Authentication.X509.ClientCAFile, 0600); err != nil {
 			return err
 		}
 	} else {
@@ -222,7 +222,7 @@ func copyFile(dst, src string, dstMode os.FileMode) error {
 	}
 
 	if !sourceFileStat.Mode().IsRegular() {
-		return 0, fmt.Errorf("%s is not a regular file", src)
+		return fmt.Errorf("%s is not a regular file", src)
 	}
 
 	source, err := os.Open(src)

@@ -28,7 +28,7 @@ spec:
     name: v1beta1
     schema:
       openAPIV3Schema:
-        description: HTTPRepository is the Schema for the httprepositories API
+        description: HTTPRepository is the Schema for the httprepositories API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
