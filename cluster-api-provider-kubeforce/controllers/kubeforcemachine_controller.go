@@ -539,7 +539,7 @@ func (r *KubeforceMachineReconciler) reconcilePlaybooks(ctx context.Context, t c
 
 func (r *KubeforceMachineReconciler) reconcilePlaybookDeployment(ctx context.Context, kfMachine *infrav1.KubeforceMachine, kfAgent *infrav1.KubeforceAgent, playbookGen *playbookGenerator) (bool, error) {
 	role := playbookGen.Role
-	pd, err := r.FindPlaybookDeploymentByRole(ctx, kfMachine, role)
+	pd, err := r.findPlaybookDeploymentByRole(ctx, kfMachine, role)
 	if err != nil {
 		return false, err
 	}
@@ -581,7 +581,7 @@ func (r *KubeforceMachineReconciler) reconcilePlaybookDeployment(ctx context.Con
 
 func (r *KubeforceMachineReconciler) reconcilePlaybook(ctx context.Context, kfMachine *infrav1.KubeforceMachine, kfAgent *infrav1.KubeforceAgent, playbookGen *playbookGenerator) (bool, error) {
 	role := playbookGen.Role
-	playbook, err := r.FindPlaybookByRole(ctx, kfMachine, role)
+	playbook, err := r.findPlaybookByRole(ctx, kfMachine, role)
 	if err != nil {
 		return false, err
 	}
@@ -622,7 +622,7 @@ func playbookLabelsByMachine(kfMachine *infrav1.KubeforceMachine, role string) m
 	}
 }
 
-func (r *KubeforceMachineReconciler) FindPlaybookByRole(ctx context.Context, kfMachine *infrav1.KubeforceMachine, role string) (*infrav1.Playbook, error) {
+func (r *KubeforceMachineReconciler) findPlaybookByRole(ctx context.Context, kfMachine *infrav1.KubeforceMachine, role string) (*infrav1.Playbook, error) {
 	list := &infrav1.PlaybookList{}
 	listOptions := client.MatchingLabelsSelector{
 		Selector: labels.Set(playbookLabelsByMachine(kfMachine, role)).AsSelector(),
@@ -643,7 +643,7 @@ func (r *KubeforceMachineReconciler) FindPlaybookByRole(ctx context.Context, kfM
 	return &list.Items[0], nil
 }
 
-func (r *KubeforceMachineReconciler) FindPlaybookDeploymentByRole(ctx context.Context, kfMachine *infrav1.KubeforceMachine, role string) (*infrav1.PlaybookDeployment, error) {
+func (r *KubeforceMachineReconciler) findPlaybookDeploymentByRole(ctx context.Context, kfMachine *infrav1.KubeforceMachine, role string) (*infrav1.PlaybookDeployment, error) {
 	list := &infrav1.PlaybookDeploymentList{}
 	listOptions := client.MatchingLabelsSelector{
 		Selector: labels.Set(playbookLabelsByMachine(kfMachine, role)).AsSelector(),

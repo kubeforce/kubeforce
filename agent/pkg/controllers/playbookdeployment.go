@@ -48,21 +48,25 @@ const (
 var _ inject.Logger = &PlaybookDeploymentReconciler{}
 var _ inject.Client = &PlaybookDeploymentReconciler{}
 
+// PlaybookDeploymentReconciler reconciles a PlaybookDeployment object.
 type PlaybookDeploymentReconciler struct {
 	Client client.Client
 	Log    logr.Logger
 }
 
+// InjectClient set client to the PlaybookDeploymentReconciler.
 func (r *PlaybookDeploymentReconciler) InjectClient(c client.Client) error {
 	r.Client = c
 	return nil
 }
 
+// InjectLogger set logger to the PlaybookDeploymentReconciler.
 func (r *PlaybookDeploymentReconciler) InjectLogger(log logr.Logger) error {
 	r.Log = log.WithName("playbookDeployment")
 	return nil
 }
 
+// Reconcile reconciles PlaybookDeployment.
 func (r *PlaybookDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, reterr error) {
 	log := r.Log.WithValues("request", req)
 	log.Info("reconciling")
@@ -188,9 +192,20 @@ func (r *PlaybookDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error 
 		Complete(r)
 }
 
-func (r *PlaybookDeploymentReconciler) reconcileDelete(ctx context.Context, pb *v1alpha1.PlaybookDeployment) (ctrl.Result, error) {
-	if controllerutil.ContainsFinalizer(pb, PlaybookDeploymentFinalizer) {
-		controllerutil.RemoveFinalizer(pb, PlaybookDeploymentFinalizer)
+func (r *PlaybookDeploymentReconciler) reconcileDelete(ctx context.Context, pd *v1alpha1.PlaybookDeployment) (ctrl.Result, error) {
+	if controllerutil.ContainsFinalizer(pd, PlaybookDeploymentFinalizer) {
+		controllerutil.RemoveFinalizer(pd, PlaybookDeploymentFinalizer)
+	}
+	playbooks, err := r.getPlaybooksForDeployment(ctx, pd)
+	if err != nil {
+		return ctrl.Result{}, errors.WithStack(err)
+	}
+	for _, playbook := range playbooks {
+		if playbook.DeletionTimestamp.IsZero() {
+			if err := r.Client.Delete(ctx, playbook); err != nil {
+				return ctrl.Result{}, errors.WithStack(err)
+			}
+		}
 	}
 	return ctrl.Result{}, nil
 }

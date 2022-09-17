@@ -31,10 +31,11 @@ const GroupName = config.GroupName
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
 
 var (
+	// SchemeBuilder is the scheme builder with scheme init functions to run for this API package.
 	SchemeBuilder      = runtime.NewSchemeBuilder(addKnownTypes, RegisterDefaults, RegisterConversions)
 	localSchemeBuilder = &SchemeBuilder
 
-	// AddToScheme adds this group to a scheme.
+	// AddToScheme is a global function that registers this API group & version to a scheme.
 	AddToScheme = localSchemeBuilder.AddToScheme
 )
 

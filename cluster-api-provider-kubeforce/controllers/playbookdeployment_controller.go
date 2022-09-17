@@ -130,12 +130,12 @@ func (r *PlaybookDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error 
 		For(&infrav1.PlaybookDeployment{}).
 		Watches(
 			&source.Kind{Type: &infrav1.KubeforceAgent{}},
-			handler.EnqueueRequestsFromMapFunc(r.KubeforceAgentToPlaybookDeployments),
+			handler.EnqueueRequestsFromMapFunc(r.kubeforceAgentToPlaybookDeployments),
 		).
 		Complete(r)
 }
 
-func (r *PlaybookDeploymentReconciler) KubeforceAgentToPlaybookDeployments(o client.Object) []ctrl.Request {
+func (r *PlaybookDeploymentReconciler) kubeforceAgentToPlaybookDeployments(o client.Object) []ctrl.Request {
 	result := []ctrl.Request{}
 	a, ok := o.(*infrav1.KubeforceAgent)
 	if !ok {
@@ -156,7 +156,7 @@ func (r *PlaybookDeploymentReconciler) KubeforceAgentToPlaybookDeployments(o cli
 	return result
 }
 
-func (r *PlaybookDeploymentReconciler) GetKubeforceAgent(ctx context.Context, playbook *infrav1.PlaybookDeployment) (*infrav1.KubeforceAgent, error) {
+func (r *PlaybookDeploymentReconciler) getKubeforceAgent(ctx context.Context, playbook *infrav1.PlaybookDeployment) (*infrav1.KubeforceAgent, error) {
 	objectKey := client.ObjectKey{
 		Namespace: playbook.Namespace,
 		Name:      playbook.Spec.AgentRef.Name,
@@ -180,11 +180,11 @@ func (r *PlaybookDeploymentReconciler) reconcileDelete(ctx context.Context, play
 	return ctrl.Result{}, nil
 }
 
-func (r *PlaybookDeploymentReconciler) deleteExternalPlaybookDeployment(ctx context.Context, playbook *infrav1.PlaybookDeployment) error {
-	if playbook.Status.ExternalName == "" {
+func (r *PlaybookDeploymentReconciler) deleteExternalPlaybookDeployment(ctx context.Context, pd *infrav1.PlaybookDeployment) error {
+	if pd.Status.ExternalName == "" {
 		return nil
 	}
-	kfAgent, err := r.GetKubeforceAgent(ctx, playbook)
+	kfAgent, err := r.getKubeforceAgent(ctx, pd)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
@@ -196,7 +196,7 @@ func (r *PlaybookDeploymentReconciler) deleteExternalPlaybookDeployment(ctx cont
 	if err != nil {
 		return err
 	}
-	err = clientSet.AgentV1alpha1().PlaybookDeployments().Delete(ctx, playbook.Status.ExternalName, metav1.DeleteOptions{})
+	err = clientSet.AgentV1alpha1().PlaybookDeployments().Delete(ctx, pd.Status.ExternalName, metav1.DeleteOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -209,7 +209,7 @@ func (r *PlaybookDeploymentReconciler) deleteExternalPlaybookDeployment(ctx cont
 func (r *PlaybookDeploymentReconciler) reconcileNormal(ctx context.Context, pd *infrav1.PlaybookDeployment) (ctrl.Result, error) {
 	log := r.Log.WithValues("pd", capiutil.ObjectKey(pd))
 	// Fetch the Machine.
-	kfAgent, err := r.GetKubeforceAgent(ctx, pd)
+	kfAgent, err := r.getKubeforceAgent(ctx, pd)
 	if err != nil {
 		conditions.MarkFalse(pd, infrav1.SynchronizationCondition, infrav1.WaitingForAgentReason, clusterv1.ConditionSeverityError, err.Error())
 		return ctrl.Result{}, err

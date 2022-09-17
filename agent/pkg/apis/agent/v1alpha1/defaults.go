@@ -22,7 +22,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// SetDefaults_Policy assigns default values for the execution policy
+// SetDefaults_Policy assigns default values for the execution policy.
+//
 //nolint:stylecheck,revive
 func SetDefaults_Policy(obj *Policy) {
 	if obj.Timeout == nil {
@@ -35,6 +36,7 @@ func SetDefaults_Policy(obj *Policy) {
 }
 
 // SetDefaults_PlaybookDeploymentSpec assigns default values for the PlaybookDeploymentSpec
+//
 //nolint:stylecheck,revive
 func SetDefaults_PlaybookDeploymentSpec(obj *PlaybookDeploymentSpec) {
 	if obj.RevisionHistoryLimit == nil {
@@ -44,6 +46,7 @@ func SetDefaults_PlaybookDeploymentSpec(obj *PlaybookDeploymentSpec) {
 }
 
 // SetDefaults_PlaybookSpec assigns default values for the PlaybookSpec
+//
 //nolint:stylecheck,revive
 func SetDefaults_PlaybookSpec(obj *PlaybookSpec) {
 	if obj.Policy == nil {

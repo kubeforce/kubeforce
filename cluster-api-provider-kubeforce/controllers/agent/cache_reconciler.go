@@ -40,6 +40,7 @@ type CacheReconciler struct {
 	ClientCache *ClientCache
 }
 
+// SetupWithManager sets up the controller with the Manager.
 func (r *CacheReconciler) SetupWithManager(mgr ctrl.Manager, options controller.Options) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&infrav1.KubeforceAgent{}).
@@ -56,7 +57,7 @@ func (r *CacheReconciler) SetupWithManager(mgr ctrl.Manager, options controller.
 	return nil
 }
 
-// Reconcile reconciles KubeforceAgent and removes client caches
+// Reconcile reconciles KubeforceAgent and removes client caches.
 func (r *CacheReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
 	log.V(4).Info("Reconciling")

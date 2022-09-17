@@ -16,6 +16,7 @@ limitations under the License.
 
 package ansible
 
+// NewTasks creates a new ansible Tasks.
 func NewTasks(name string) *Tasks {
 	return &Tasks{
 		Name:       name,
@@ -40,8 +41,10 @@ func (t *Tasks) AddTasks(tasks ...TaskModule) {
 	t.Tasks = append(t.Tasks, tasks...)
 }
 
+// TaskModule describe the ansible task module.
 type TaskModule interface{}
 
+// Task describes the general parameters of the task.
 type Task struct {
 	Name string `json:"name,omitempty"`
 }

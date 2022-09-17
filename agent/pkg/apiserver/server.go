@@ -40,11 +40,9 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/openapi"
 	"k8s.io/apiserver/pkg/features"
 	"k8s.io/apiserver/pkg/registry/generic"
-	"k8s.io/apiserver/pkg/server"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
 	"k8s.io/apiserver/pkg/server/filters"
-	"k8s.io/apiserver/pkg/server/options"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	clientgoinformers "k8s.io/client-go/informers"
@@ -75,6 +73,7 @@ var (
 	ParameterCodec = runtime.NewParameterCodec(Scheme)
 )
 
+// NewServer create a new apiserver.
 func NewServer(cfg config.ConfigSpec) (*Server, error) {
 	s := &Server{
 		config:  cfg,
@@ -86,6 +85,7 @@ func NewServer(cfg config.ConfigSpec) (*Server, error) {
 	return s, nil
 }
 
+// Server is a component that exposes the agent functionality over HTTP.
 type Server struct {
 	config             config.ConfigSpec
 	genericAPIServer   *genericapiserver.GenericAPIServer
@@ -98,7 +98,7 @@ type Server struct {
 
 // InstallAPIs will install the APIs for the restStorageProviders if they are enabled.
 func (s *Server) InstallAPIs(restOptionsGetter generic.RESTOptionsGetter, restStorageProviders ...storage.RESTStorageProvider) error {
-	var apiGroupsInfo []*genericapiserver.APIGroupInfo
+	apiGroupsInfo := make([]*genericapiserver.APIGroupInfo, 0)
 
 	req := &storage.RESTStorageRequest{
 		Scheme:            Scheme,
@@ -152,7 +152,7 @@ func (s *Server) init() error {
 	recommendedOptions.Authorization = nil
 	recommendedOptions.CoreAPI = nil
 	recommendedOptions.Admission = nil
-	recommendedOptions.SecureServing = &options.SecureServingOptionsWithLoopback{}
+	recommendedOptions.SecureServing = &genericoptions.SecureServingOptionsWithLoopback{}
 	recommendedOptions.Etcd.StorageConfig.Paging = utilfeature.DefaultFeatureGate.Enabled(features.APIListChunking)
 
 	if err := kerrors.NewAggregate(recommendedOptions.Validate()); err != nil {
@@ -224,19 +224,19 @@ func (s *Server) InstallDefaultHandlers() {
 }
 
 // createSecureServing fills up serving information in the server configuration.
-func createSecureServing(cfg config.ConfigSpec) (*server.SecureServingInfo, error) {
+func createSecureServing(cfg config.ConfigSpec) (*genericapiserver.SecureServingInfo, error) {
 	if cfg.Port <= 0 {
 		return nil, fmt.Errorf("unable to use port: %d", cfg.Port)
 	}
 
 	addr := net.JoinHostPort("0.0.0.0", strconv.Itoa(cfg.Port))
 	lc := net.ListenConfig{}
-	listener, _, err := options.CreateListener("tcp", addr, lc)
+	listener, _, err := genericoptions.CreateListener("tcp", addr, lc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create listener: %v", err)
 	}
 
-	c := &server.SecureServingInfo{
+	c := &genericapiserver.SecureServingInfo{
 		Listener: listener,
 	}
 
@@ -278,11 +278,11 @@ func createSecureServing(cfg config.ConfigSpec) (*server.SecureServingInfo, erro
 func createLoopBackConfig(secureServingInfo *genericapiserver.SecureServingInfo) (*restclient.Config, error) {
 	// create self-signed cert+key with the fake server.LoopbackClientServerNameOverride and
 	// let the server return it when the loopback client connects.
-	certPem, keyPem, err := certutil.GenerateSelfSignedCertKey(server.LoopbackClientServerNameOverride, nil, nil)
+	certPem, keyPem, err := certutil.GenerateSelfSignedCertKey(genericapiserver.LoopbackClientServerNameOverride, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate self-signed certificate for loopback connection: %v", err)
 	}
-	certProvider, err := dynamiccertificates.NewStaticSNICertKeyContent("self-signed loopback", certPem, keyPem, server.LoopbackClientServerNameOverride)
+	certProvider, err := dynamiccertificates.NewStaticSNICertKeyContent("self-signed loopback", certPem, keyPem, genericapiserver.LoopbackClientServerNameOverride)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate self-signed certificate for loopback connection: %v", err)
 	}
@@ -293,7 +293,7 @@ func createLoopBackConfig(secureServingInfo *genericapiserver.SecureServingInfo)
 	return secureServingInfo.NewLoopbackClientConfig(uuid.New().String(), certPem)
 }
 
-func applyToAuthentication(authenticationInfo *server.AuthenticationInfo, servingInfo *server.SecureServingInfo, openAPIConfig *openapicommon.Config, cfg config.ConfigSpec) error {
+func applyToAuthentication(authenticationInfo *genericapiserver.AuthenticationInfo, servingInfo *genericapiserver.SecureServingInfo, openAPIConfig *openapicommon.Config, cfg config.ConfigSpec) error {
 	authCfg := authenticatorfactory.DelegatingAuthenticatorConfig{
 		Anonymous: false,
 	}
@@ -335,10 +335,12 @@ func (s *Server) readyHook() genericapiserver.PostStartHookFunc {
 	}
 }
 
+// ReadyNotify returns a channel that closes when the server is ready.
 func (s *Server) ReadyNotify() <-chan struct{} {
 	return s.started
 }
 
+// Start starts the agent API server.
 func (s *Server) Start(ctx context.Context) error {
 	restStorageProviders := []storage.RESTStorageProvider{
 		agentrest.StorageProvider{},

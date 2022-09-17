@@ -28,11 +28,13 @@ import (
 	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/names"
 )
 
+// Keys describes agent's tls and client auth certificates.
 type Keys struct {
 	AuthClient *secret.KeyPair `json:"auth_client"`
 	TLS        *secret.KeyPair `json:"tls"`
 }
 
+// GetKeys returns the Keys for the KubeforceAgent.
 func GetKeys(ctx context.Context, ctrlclient client.Client, kfAgent *infrav1.KubeforceAgent) (*Keys, error) {
 	clientObjectKey, err := GetAgentClientCertObjectKey(kfAgent, ActiveKey)
 	if err != nil {
@@ -62,9 +64,10 @@ func GetKeys(ctx context.Context, ctrlclient client.Client, kfAgent *infrav1.Kub
 // PurposeKey specifies the purpose of the tls agent key.
 type PurposeKey string
 
+// These are PurposeKey values.
 const (
-	IssuedKey PurposeKey = "TLS"
-	ActiveKey PurposeKey = "TLS-active"
+	IssuedKey PurposeKey = "tls"
+	ActiveKey PurposeKey = "tls-active"
 )
 
 // GetAgentTLSObjectKey returns the client.ObjectKey for the agent's tls certificate.

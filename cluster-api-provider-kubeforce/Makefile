@@ -254,15 +254,15 @@ clean: ## Remove build artefacts
 
 ##@ hack/tools:
 
-.PHONY: $(CONTROLLER_GEN_BIN)
-$(CONTROLLER_GEN_BIN): $(CONTROLLER_GEN) ## Build a local copy of controller-gen.
-
 .PHONY: $(KUSTOMIZE_BIN)
 $(KUSTOMIZE_BIN): $(KUSTOMIZE) ## Build a local copy of kustomize.
 
 $(KUSTOMIZE): # Build kustomize from tools folder.
 	CGO_ENABLED=0 GOBIN=$(TOOLS_BIN_DIR) go install $(KUSTOMIZE_PKG)@$(KUSTOMIZE_VER)
 	mv $(TOOLS_BIN_DIR)/$(KUSTOMIZE_BIN) $(KUSTOMIZE)
+
+.PHONY: $(CONTROLLER_GEN_BIN)
+$(CONTROLLER_GEN_BIN): $(CONTROLLER_GEN) ## Build a local copy of controller-gen.
 
 $(CONTROLLER_GEN): # Build controller-gen from tools folder.
 	CGO_ENABLED=0 GOBIN=$(TOOLS_BIN_DIR) go install $(CONTROLLER_GEN_PKG)@$(CONTROLLER_GEN_VER)

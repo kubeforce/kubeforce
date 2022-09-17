@@ -24,6 +24,7 @@ import (
 )
 
 func runCmd(ctx context.Context, args ...string) error {
+	//nolint:gosec
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	if err := cmd.Run(); err != nil {
 		return errors.Wrapf(err, "unable to execute cmd: %q", cmd)
@@ -33,6 +34,7 @@ func runCmd(ctx context.Context, args ...string) error {
 
 func isCommandAvailable(ctx context.Context, name string) bool {
 	innerCommand := "command -v " + name
+	//nolint:gosec
 	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", innerCommand)
 	if err := cmd.Run(); err != nil {
 		return false

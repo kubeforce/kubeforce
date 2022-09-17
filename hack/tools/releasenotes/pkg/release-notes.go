@@ -16,16 +16,19 @@ limitations under the License.
 
 package pkg
 
+// ReleaseNotes describes release notes sorted into groups.
 type ReleaseNotes struct {
 	NoteGroups    []*NoteGroup
 	UnsortedNotes []Note
 }
 
+// NoteGroup describes a group of release notes.
 type NoteGroup struct {
 	Title string
 	Notes []Note
 }
 
+// Note describes a note in the release.
 type Note struct {
 	Subject string
 	Body    string

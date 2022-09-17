@@ -124,6 +124,8 @@ spec:
                                   client certificate authentication
                                 properties:
                                   clientSecret:
+                                    description: ClientSecret is the name of the secret
+                                      in the same namespace as the KubeforceAgent.
                                     type: string
                                 required:
                                 - clientSecret

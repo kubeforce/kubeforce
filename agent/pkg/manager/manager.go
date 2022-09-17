@@ -56,6 +56,7 @@ type ReadyRunnable interface {
 	ReadyNotify() <-chan struct{}
 }
 
+// NewManager returns a new Manager to manage Runnable components.
 func NewManager(gracefulShutdownTimeout time.Duration) (*Manager, error) {
 	return &Manager{
 		runnables:               make([]Runnable, 0),
@@ -65,6 +66,7 @@ func NewManager(gracefulShutdownTimeout time.Duration) (*Manager, error) {
 
 var _ Runnable = &Manager{}
 
+// Manager runs and stops Runnable components in the correct sequence.
 type Manager struct {
 	// mainRunnables are the components that run first and exit last.
 	mainRunnables []ReadyRunnable
@@ -83,6 +85,7 @@ type Manager struct {
 	errChan             chan error
 }
 
+// Start starts the manager and waits indefinitely.
 func (m *Manager) Start(ctx context.Context) (err error) {
 	mainCtx, mainCancelFunc := context.WithCancel(context.Background())
 	defer mainCancelFunc()
@@ -185,6 +188,7 @@ func (m *Manager) waitForRunnableToEnd() (retErr error) {
 	return nil
 }
 
+// Add adds the component to the dispatcher and causes the component to run when Start is called.
 func (m *Manager) Add(r Runnable) {
 	if rr, ok := r.(ReadyRunnable); ok {
 		m.mainRunnables = append(m.mainRunnables, rr)

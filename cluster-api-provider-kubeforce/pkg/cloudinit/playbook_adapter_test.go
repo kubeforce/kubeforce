@@ -579,7 +579,6 @@ func TestRealUseCase(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 	expectedPlaybook := strings.TrimSpace(playbook)
 	gotPlaybook := strings.TrimSpace(string(resultPlaybook))
-	// os.WriteFile("cloud-init.yaml", resultPlaybook, 0666)
 	if !cmp.Equal(expectedPlaybook, gotPlaybook) {
 		t.Errorf("playbook is not as expected,\ngot: %s\ndiff: %s", gotPlaybook, cmp.Diff(expectedPlaybook, gotPlaybook))
 	}

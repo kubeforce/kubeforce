@@ -106,8 +106,7 @@ func (h *UploadHandler) uploadFile(r *http.Request) error {
 			return errors.Errorf("unable to create a directory %q", targetDir)
 		}
 	}
-
-	dst, err := os.OpenFile(targetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, fileMode)
+	dst, err := os.OpenFile(filepath.Clean(targetPath), os.O_RDWR|os.O_CREATE|os.O_TRUNC, fileMode)
 	if err != nil {
 		return errors.Errorf("unable to create a file %q", targetPath)
 	}

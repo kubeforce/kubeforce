@@ -30,6 +30,7 @@ import (
 	stringutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/strings"
 )
 
+// NewClientConfigByAddress creates a new rest.Config from Keys and infrav1.Addresses.
 func NewClientConfigByAddress(keys *Keys, addresses infrav1.Addresses) (*restclient.Config, error) {
 	host, err := GetServer(addresses)
 	if err != nil {
@@ -38,6 +39,7 @@ func NewClientConfigByAddress(keys *Keys, addresses infrav1.Addresses) (*restcli
 	return NewClientConfig(keys, host), nil
 }
 
+// GetServer returns http url for address.
 func GetServer(addresses infrav1.Addresses) (string, error) {
 	address := stringutil.Find(stringutil.IsNotEmpty, addresses.ExternalDNS, addresses.ExternalIP)
 	if address == "" {
@@ -47,6 +49,7 @@ func GetServer(addresses infrav1.Addresses) (string, error) {
 	return server, nil
 }
 
+// NewClientConfig creates a rest.Config.
 func NewClientConfig(keys *Keys, host string) *restclient.Config {
 	config := restclient.Config{
 		QPS:     restclient.DefaultQPS,
@@ -66,6 +69,7 @@ func NewClientConfig(keys *Keys, host string) *restclient.Config {
 	return &config
 }
 
+// NewClientKubeconfig creates a kubeconfig for agent.
 func NewClientKubeconfig(keys *Keys, server string) api.Config {
 	clusterName := "kubernetes"
 	contextName := "default"
@@ -97,6 +101,7 @@ func NewClientKubeconfig(keys *Keys, server string) api.Config {
 	return apiConfig
 }
 
+// NewClientSet creates a new Clientset.
 func NewClientSet(keys *Keys, addresses infrav1.Addresses) (*clientset.Clientset, error) {
 	config, err := NewClientConfigByAddress(keys, addresses)
 	if err != nil {

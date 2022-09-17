@@ -58,22 +58,26 @@ var (
 var _ inject.Logger = &PlaybookReconciler{}
 var _ inject.Client = &PlaybookReconciler{}
 
+// PlaybookReconciler reconciles a Playbook objects.
 type PlaybookReconciler struct {
 	PlaybookPath string
 	Client       client.Client
 	Log          logr.Logger
 }
 
+// InjectClient set client to the PlaybookReconciler.
 func (r *PlaybookReconciler) InjectClient(c client.Client) error {
 	r.Client = c
 	return nil
 }
 
+// InjectLogger set logger to the PlaybookReconciler.
 func (r *PlaybookReconciler) InjectLogger(log logr.Logger) error {
 	r.Log = log.WithName("playbook")
 	return nil
 }
 
+// Reconcile reconciles PlaybookReconciler.
 func (r *PlaybookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, reterr error) {
 	log := r.Log.WithValues("request", req)
 	log.Info("reconciling")
@@ -222,7 +226,7 @@ func (r *PlaybookReconciler) runPlaybook(ctx context.Context, pb *v1alpha1.Playb
 	now := time.Now()
 	logFilename := now.Format("2006_01_02T15_04_05") + ".log"
 	logFilePath := filepath.Join(r.PlaybookPath, pb.Name, "logs", logFilename)
-	f, err := os.Create(logFilePath)
+	f, err := os.Create(filepath.Clean(logFilePath))
 	if err != nil {
 		return errors.Wrapf(err, "unable to create file %s", logFilePath)
 	}

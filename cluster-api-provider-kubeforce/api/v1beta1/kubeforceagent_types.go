@@ -190,15 +190,16 @@ type CertificatePrivateKey struct {
 	Size int `json:"size,omitempty"`
 }
 
-// AgentAuthentication is configuration for agent authrntication.
+// AgentAuthentication is configuration for agent authentication.
 type AgentAuthentication struct {
 	// X509 contains settings related to x509 client certificate authentication
 	// +optional
 	X509 AgentX509Authentication `json:"x509"`
 }
 
-// AgentX509Authentication is ...
+// AgentX509Authentication describes configuration of x509 client certificate authentication.
 type AgentX509Authentication struct {
+	// ClientSecret is the name of the secret in the same namespace as the KubeforceAgent.
 	ClientSecret string `json:"clientSecret"`
 }
 

@@ -32,7 +32,7 @@ func Kind(kind string) schema.GroupKind {
 	return SchemeGroupVersion.WithKind(kind).GroupKind()
 }
 
-// Resource takes an unqualified resource and returns back a Group qualified GroupResource
+// Resource takes an unqualified resource and returns back a Group qualified GroupResource.
 func Resource(resource string) schema.GroupResource {
 	return SchemeGroupVersion.WithResource(resource).GroupResource()
 }

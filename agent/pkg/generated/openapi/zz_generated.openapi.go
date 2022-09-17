@@ -159,7 +159,8 @@ func schema_pkg_apis_agent_v1alpha1_Interface(ref common.ReferenceCallback) comm
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "Interface describes summary information about a network interface.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"name": {
 						SchemaProps: spec.SchemaProps{
@@ -200,7 +201,7 @@ func schema_pkg_apis_agent_v1alpha1_Network(ref common.ReferenceCallback) common
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Network defines the network information",
+				Description: "Network defines the network information.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"hostname": {
@@ -292,7 +293,7 @@ func schema_pkg_apis_agent_v1alpha1_PlaybookDeployment(ref common.ReferenceCallb
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PlaybookDeployment",
+				Description: "PlaybookDeployment provides declarative updates for Playbook.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -339,7 +340,7 @@ func schema_pkg_apis_agent_v1alpha1_PlaybookDeploymentList(ref common.ReferenceC
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PlaybookDeploymentList",
+				Description: "PlaybookDeploymentList contains a list of PlaybookDeployment.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -452,7 +453,7 @@ func schema_pkg_apis_agent_v1alpha1_PlaybookList(ref common.ReferenceCallback) c
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PlaybookList",
+				Description: "PlaybookList defines multiple playbooks.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -689,7 +690,7 @@ func schema_pkg_apis_agent_v1alpha1_Policy(ref common.ReferenceCallback) common.
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Policy defines the playbook execution policy",
+				Description: "Policy defines the playbook execution policy.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"timeout": {

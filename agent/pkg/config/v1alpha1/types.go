@@ -45,6 +45,7 @@ type ConfigSpec struct {
 	PlaybookPath string `json:"playbookPath"`
 }
 
+// TLS describes tls certificate.
 type TLS struct {
 	// CertFile is the file containing x509 Certificate for HTTPS.
 	// +optional
@@ -66,12 +67,14 @@ type TLS struct {
 	TLSMinVersion string `json:"tlsMinVersion,omitempty"`
 }
 
+// AgentAuthentication is configuration for agent authentication.
 type AgentAuthentication struct {
-	// X509 contains settings related to x509 client certificate authentication
+	// X509 contains settings related to x509 client certificate authentication.
 	// +optional
 	X509 AgentX509Authentication `json:"x509"`
 }
 
+// AgentX509Authentication describes configuration of x509 client certificate authentication.
 type AgentX509Authentication struct {
 	// ClientCAFile is the path to a PEM-encoded certificate bundle. If set, any request presenting a client certificate
 	// signed by one of the authorities in the bundle is authenticated with a username corresponding to the CommonName,

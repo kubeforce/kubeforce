@@ -36,6 +36,7 @@ const (
 	ResultFailure ProbeResult = false
 )
 
+// ProbeHandler describes a health check handler.
 type ProbeHandler interface {
 	GetKey() string
 	DoProbe(ctx context.Context) (bool, error)
@@ -74,6 +75,7 @@ type ProbeParams struct {
 	FailureThreshold int32 `json:"failureThreshold,omitempty"`
 }
 
+// Equal compares one ProbeParams with another.
 func (p ProbeParams) Equal(o ProbeParams) bool {
 	return p.TimeoutSeconds == o.TimeoutSeconds &&
 		p.PeriodSeconds == o.PeriodSeconds &&
@@ -82,7 +84,7 @@ func (p ProbeParams) Equal(o ProbeParams) bool {
 }
 
 // Controller controls probing. It creates a probe "worker" for every probe.
-//  The worker periodically probes its assigned validation method and caches the results. The
+// The worker periodically probes its assigned validation method and caches the results. The
 // controller use the cached probe results to set the appropriate Ready state in the condition.
 type Controller interface {
 	// EnsureProbe creates new probe workers if necessary.

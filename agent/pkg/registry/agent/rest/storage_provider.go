@@ -31,10 +31,12 @@ import (
 	"k3f.io/kubeforce/agent/pkg/registry/storage"
 )
 
+// StorageProvider is a factory to create rest.Storage for group "agent.kubeforce.io".
 type StorageProvider struct{}
 
 var _ storage.RESTStorageProvider = StorageProvider{}
 
+// NewRESTStorage creates rest.Storage for group "agent.kubeforce.io".
 func (p StorageProvider) NewRESTStorage(req *storage.RESTStorageRequest) (genericapiserver.APIGroupInfo, error) {
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(agent.GroupName, req.Scheme, req.ParameterCodec, req.Codecs)
 
@@ -76,6 +78,7 @@ func (p StorageProvider) v1alpha1Storage(scheme *runtime.Scheme, restOptionsGett
 	return storageMap, err
 }
 
+// GroupName returns the group name for this StorageProvider.
 func (p StorageProvider) GroupName() string {
 	return agent.GroupName
 }

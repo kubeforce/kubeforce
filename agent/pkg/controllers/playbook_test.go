@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -49,6 +50,7 @@ var badPlaybook = `
 `
 
 func TestSuccessfulPlaybook(t *testing.T) {
+	ctx := context.Background()
 	g := NewGomegaWithT(t)
 	plName := "test-playbook"
 	t.Run("run the successful playbook", func(t *testing.T) {
@@ -93,6 +95,7 @@ func TestSuccessfulPlaybook(t *testing.T) {
 }
 
 func TestFailedPlaybook(t *testing.T) {
+	ctx := context.Background()
 	DefaultJobBackOff = time.Duration(0) // overwrite the default value for testing
 	g := NewGomegaWithT(t)
 	plName := "playbook"

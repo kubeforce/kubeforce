@@ -40,12 +40,13 @@ type Initializer struct {
 	Client client.Client
 }
 
+// Start starts the Initializer controller.
 func (i *Initializer) Start(ctx context.Context) error {
 	id := "_init_"
 	backOff := flowcontrol.NewBackOff(time.Second, 5*time.Minute)
 	for {
 		if ctx.Err() != nil {
-			return nil
+			return ctx.Err()
 		}
 		err := i.init(ctx)
 		if err == nil {

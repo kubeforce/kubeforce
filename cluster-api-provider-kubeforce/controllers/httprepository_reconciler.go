@@ -38,6 +38,7 @@ type HTTPRepositoryReconciler struct {
 	Storage *repository.Storage
 }
 
+// SetupWithManager sets up the controller with the Manager.
 func (r *HTTPRepositoryReconciler) SetupWithManager(mgr ctrl.Manager, options controller.Options) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&infrav1.HTTPRepository{}).

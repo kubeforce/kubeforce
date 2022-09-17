@@ -136,9 +136,7 @@ func (r *KubeforceClusterReconciler) reconcileNormal(ctx context.Context, cluste
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if err := r.refreshAPIServers(ctx, kubeforceCluster, machines); err != nil {
-		return ctrl.Result{}, err
-	}
+	r.refreshAPIServers(ctx, kubeforceCluster, machines)
 	if err := r.reconcileControlPlaneEndpoint(ctx, cluster, kubeforceCluster, machines); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -250,7 +248,7 @@ func (r *KubeforceClusterReconciler) refreshControlPlaneEndpoint(ctx context.Con
 	return true, nil
 }
 
-func (r *KubeforceClusterReconciler) refreshAPIServers(_ context.Context, cluster *infrav1.KubeforceCluster, controlPlaneMachines []infrav1.KubeforceMachine) error {
+func (r *KubeforceClusterReconciler) refreshAPIServers(_ context.Context, cluster *infrav1.KubeforceCluster, controlPlaneMachines []infrav1.KubeforceMachine) {
 	apiServers := make([]string, 0, len(controlPlaneMachines))
 	for _, m := range controlPlaneMachines {
 		if m.Status.InternalIP != "" {
@@ -259,8 +257,6 @@ func (r *KubeforceClusterReconciler) refreshAPIServers(_ context.Context, cluste
 	}
 	sort.Strings(apiServers)
 	cluster.Status.APIServers = apiServers
-
-	return nil
 }
 
 func (r *KubeforceClusterReconciler) reconcileDelete(ctx context.Context, kubeforceCluster *infrav1.KubeforceCluster) (ctrl.Result, error) {

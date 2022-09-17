@@ -19,7 +19,16 @@ MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR := $(realpath $(patsubst %/,%,$(dir $(MKFILE_PATH))))
 BUILD_DIR ?= $(MKFILE_DIR)/_build
 VERSION := $(shell $(MKFILE_DIR)/hack/version.sh version)
-TOOLS_DIR := hack/tools
+INTERNAL_TOOLS_DIR := hack/tools
+TOOLS_BIN_DIR := $(abspath $(BUILD_DIR)/tools/bin)
+
+#
+# Tools.
+#
+GOLINTCI_LINT_VER := v1.49.0
+GOLINTCI_LINT_BIN := golangci-lint
+GOLINTCI_LINT := $(abspath $(TOOLS_BIN_DIR)/$(GOLINTCI_LINT_BIN)-$(GOLINTCI_LINT_VER))
+GOLINTCI_LINT_PKG := github.com/golangci/golangci-lint/cmd/golangci-lint
 
 .PHONY: help
 help:  ## Display this help
@@ -120,7 +129,7 @@ generate: ## Run all generation targets
 .PHONY: generate-modules
 generate-modules: ## Run go mod tidy to ensure modules are up to date
 	go mod tidy
-	cd $(TOOLS_DIR); go mod tidy
+	cd $(INTERNAL_TOOLS_DIR); go mod tidy
 
 ## --------------------------------------
 ## Lint / Verify
@@ -129,12 +138,10 @@ generate-modules: ## Run go mod tidy to ensure modules are up to date
 ##@ lint and verify:
 
 .PHONY: lint
-lint: ## Lint packages on host
-	@golangci-lint run \
-		--config .golangci.yml \
-		--timeout 10m \
-		./agent/... \
-		./cluster-api-provider-kubeforce/...
+lint: $(GOLINTCI_LINT) ## Lint packages on host
+	$(GOLINTCI_LINT) run -v --timeout 10m ./...
+	cd $(INTERNAL_TOOLS_DIR); $(GOLINTCI_LINT) run -v --timeout 10m ./...
+
 
 ALL_VERIFY_CHECKS = modules boilerplate shellcheck modules dockerfiles gen
 
@@ -147,7 +154,7 @@ verify-boilerplate: ## Verify boilerplate text exists in each file
 
 .PHONY: verify-modules
 verify-modules: generate-modules  ## Verify go modules are up to date
-	@if !(git diff --quiet HEAD -- go.sum go.mod $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum); then \
+	@if !(git diff --quiet HEAD -- go.sum go.mod $(INTERNAL_TOOLS_DIR)/go.mod $(INTERNAL_TOOLS_DIR)/go.sum); then \
 		git --no-pager diff; \
 		echo "go module files are out of date"; exit 1; \
 	fi
@@ -170,3 +177,16 @@ verify-shellcheck: ## Verify shell files
 .PHONY: verify-dockerfiles
 verify-dockerfiles: ## Verify dockerfiles
 	./hack/verify-dockerfiles.sh
+
+## --------------------------------------
+## Hack / Tools
+## --------------------------------------
+
+##@ hack/tools:
+
+.PHONY: $(GOLINTCI_LINT_BIN)
+$(GOLINTCI_LINT_BIN): $(GOLINTCI_LINT) ## Build a local copy of golintci-lint.
+
+$(GOLINTCI_LINT): # Build golintci-lint from tools folder.
+	CGO_ENABLED=0 GOBIN=$(TOOLS_BIN_DIR) go install $(GOLINTCI_LINT_PKG)@$(GOLINTCI_LINT_VER)
+	mv $(TOOLS_BIN_DIR)/$(GOLINTCI_LINT_BIN) $(GOLINTCI_LINT)

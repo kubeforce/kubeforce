@@ -24,7 +24,7 @@ import (
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// PlaybookDeployment
+// PlaybookDeployment provides declarative updates for Playbook.
 // +k8s:openapi-gen=true
 type PlaybookDeployment struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -34,7 +34,7 @@ type PlaybookDeployment struct {
 	Status PlaybookDeploymentStatus `json:"status,omitempty"`
 }
 
-// PlaybookDeploymentList
+// PlaybookDeploymentList contains a list of PlaybookDeployment.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type PlaybookDeploymentList struct {
 	metav1.TypeMeta `json:",inline"`

@@ -18,6 +18,7 @@ package utils
 
 import (
 	"os"
+	"path/filepath"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -28,8 +29,8 @@ import (
 )
 
 // LoadFromFile deserializes the contents from file into Config object.
-func LoadFromFile(filepath string) (*config.Config, error) {
-	bytes, err := os.ReadFile(filepath)
+func LoadFromFile(cfgPath string) (*config.Config, error) {
+	bytes, err := os.ReadFile(filepath.Clean(cfgPath))
 	if err != nil {
 		return nil, err
 	}

@@ -49,6 +49,7 @@ type Network struct {
 	Interfaces []Interface
 }
 
+// Interface describe the options of network interface.
 type Interface struct {
 	Name    string
 	Address string
