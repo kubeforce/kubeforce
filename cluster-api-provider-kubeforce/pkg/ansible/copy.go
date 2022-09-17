@@ -31,7 +31,7 @@ type CopyTaskParams struct {
 	// Used to validate that the copy of the file was successful.
 	// If this is not provided, ansible will use the local calculated checksum of the src file.
 	Checksum string `json:"checksum,omitempty"`
-	//Owner is a name of the user that should own the filesystem object, as would be fed to chown.
+	// Owner is a name of the user that should own the filesystem object, as would be fed to chown.
 	Owner string `json:"owner,omitempty"`
 	// Group is a name of the group that should own the filesystem object, as would be fed to chown.
 	Group string `json:"group,omitempty"`

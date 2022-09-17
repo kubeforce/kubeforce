@@ -41,7 +41,7 @@ const (
 // +kubebuilder:printcolumn:name="Ready",type="boolean",JSONPath=".status.ready",description="KubeforceMachine ready state"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of KubeforceMachine"
 
-// KubeforceMachine is the Schema for the kubeforcemachines API
+// KubeforceMachine is the Schema for the kubeforcemachines API.
 type KubeforceMachine struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -50,7 +50,7 @@ type KubeforceMachine struct {
 	Status KubeforceMachineStatus `json:"status,omitempty"`
 }
 
-// KubeforceMachineSpec defines the desired state of KubeforceMachine
+// KubeforceMachineSpec defines the desired state of KubeforceMachine.
 type KubeforceMachineSpec struct {
 	// ProviderID will be the container name in ProviderID format (kf://<cluster>-<machine>)
 	// +optional
@@ -66,7 +66,7 @@ type KubeforceMachineSpec struct {
 	AgentSelector *metav1.LabelSelector `json:"agentSelector,omitempty"`
 }
 
-// KubeforceMachineStatus defines the observed state of KubeforceMachine
+// KubeforceMachineStatus defines the observed state of KubeforceMachine.
 type KubeforceMachineStatus struct {
 	// Ready denotes that the machine is ready
 	// +optional
@@ -74,7 +74,7 @@ type KubeforceMachineStatus struct {
 
 	// Playbooks are playbooks that are controlled by KubeforceMachine.
 	// +optional
-	Playbooks map[string]*PlaybookRefs `json:"playbooks,omitempty"`
+	Playbooks map[string]*PlaybookInfo `json:"playbooks,omitempty"`
 
 	// InternalIP is an ip address from default interface
 	InternalIP string `json:"internalIP,omitempty"`
@@ -88,7 +88,8 @@ type KubeforceMachineStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
-type PlaybookRefs struct {
+// PlaybookInfo describes the high-level summary of controlled playbooks.
+type PlaybookInfo struct {
 	// Name is a name of playbook
 	Name string `json:"name"`
 	// Phase is the phase of a Playbook, high-level summary of where the Playbook is in its lifecycle.
@@ -110,7 +111,7 @@ func (c *KubeforceMachine) SetConditions(conditions clusterv1.Conditions) {
 
 //+kubebuilder:object:root=true
 
-// KubeforceMachineList contains a list of KubeforceMachine
+// KubeforceMachineList contains a list of KubeforceMachine.
 type KubeforceMachineList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

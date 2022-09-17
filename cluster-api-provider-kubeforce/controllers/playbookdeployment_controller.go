@@ -21,20 +21,8 @@ import (
 	"fmt"
 	"time"
 
-	patchutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/patch"
-
-	agentctrl "k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
-
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/source"
-
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	apiagent "k3f.io/kubeforce/agent/pkg/apis/agent"
-	"k3f.io/kubeforce/agent/pkg/apis/agent/v1alpha1"
-	agentclient "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
-	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/agent"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -46,9 +34,19 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	apiagent "k3f.io/kubeforce/agent/pkg/apis/agent"
+	"k3f.io/kubeforce/agent/pkg/apis/agent/v1alpha1"
+	agentclient "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
+	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
+	agentctrl "k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/agent"
+	patchutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/patch"
 )
 
-// PlaybookDeploymentReconciler reconciles a PlaybookDeployment object
+// PlaybookDeploymentReconciler reconciles a PlaybookDeployment object.
 type PlaybookDeploymentReconciler struct {
 	Log              logr.Logger
 	Client           client.Client
@@ -190,7 +188,7 @@ func (r *PlaybookDeploymentReconciler) deleteExternalPlaybookDeployment(ctx cont
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
-	if kfAgent == nil || !agent.IsReady(kfAgent) {
+	if kfAgent == nil || !agent.IsHealthy(kfAgent) {
 		return nil
 	}
 
@@ -228,7 +226,7 @@ func (r *PlaybookDeploymentReconciler) reconcileNormal(ctx context.Context, pd *
 		return ctrl.Result{}, nil
 	}
 
-	if !agent.IsReady(kfAgent) {
+	if !agent.IsHealthy(kfAgent) {
 		msg := "agent is not ready"
 		conditions.MarkFalse(pd, infrav1.SynchronizationCondition, infrav1.WaitingForAgentReason, clusterv1.ConditionSeverityInfo, msg)
 		return ctrl.Result{}, nil

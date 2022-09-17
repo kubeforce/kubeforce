@@ -22,11 +22,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+// PackageManager describes the behavior of a package manager for a Linux host.
 type PackageManager interface {
 	Update(ctx context.Context) error
 	Install(ctx context.Context, packages ...string) error
 }
 
+// GetPackageManager returns the installed package manager on the current host.
 func GetPackageManager(ctx context.Context) (PackageManager, error) {
 	if isCommandAvailable(ctx, "apt-get") {
 		return &aptPkgManager{}, nil

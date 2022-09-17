@@ -24,7 +24,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// CalcSHA256Sum calculates sha256 checksum for content
+// CalcSHA256Sum calculates sha256 checksum for content.
 func CalcSHA256Sum(content []byte) (string, error) {
 	h := sha256.New()
 	_, err := h.Write(content)
@@ -34,6 +34,7 @@ func CalcSHA256Sum(content []byte) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
+// CalcSHA256ForObject calculates sha256 checksum for object.
 func CalcSHA256ForObject(obj interface{}) (string, error) {
 	jsonData, err := json.Marshal(obj)
 	if err != nil {

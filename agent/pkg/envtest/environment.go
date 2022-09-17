@@ -28,9 +28,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"k3f.io/kubeforce/agent/pkg/apiserver"
-	"k3f.io/kubeforce/agent/pkg/config"
-	"k3f.io/kubeforce/agent/pkg/manager"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -38,8 +35,13 @@ import (
 	certutil "k8s.io/client-go/util/cert"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlzap "sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"k3f.io/kubeforce/agent/pkg/apiserver"
+	"k3f.io/kubeforce/agent/pkg/config"
+	"k3f.io/kubeforce/agent/pkg/manager"
 )
 
+// Environment describe data for test environment.
 type Environment struct {
 	tmpDir string
 	config *config.Config
@@ -87,6 +89,7 @@ func (e *Environment) generateConfig() error {
 	return nil
 }
 
+// Start starts the apiserver and controller manager for the test environment.
 func (e *Environment) Start(ctx context.Context, runnable func(agentConfig *config.Config, config *rest.Config) manager.RunnableFunc) (*rest.Config, error) {
 	if err := e.generateConfig(); err != nil {
 		return nil, err

@@ -18,7 +18,7 @@ package ansible
 
 import "sigs.k8s.io/yaml"
 
-// Marshall serializes ansible tasks to a yaml format
+// Marshall serializes ansible tasks to a yaml format.
 func Marshall(tasks ...*Tasks) ([]byte, error) {
 	return yaml.Marshal(tasks)
 }

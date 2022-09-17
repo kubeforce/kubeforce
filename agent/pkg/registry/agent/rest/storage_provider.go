@@ -17,6 +17,11 @@ limitations under the License.
 package rest
 
 import (
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apiserver/pkg/registry/generic"
+	"k8s.io/apiserver/pkg/registry/rest"
+	genericapiserver "k8s.io/apiserver/pkg/server"
+
 	"k3f.io/kubeforce/agent/pkg/apis/agent"
 	"k3f.io/kubeforce/agent/pkg/apis/agent/v1alpha1"
 	"k3f.io/kubeforce/agent/pkg/config"
@@ -24,10 +29,6 @@ import (
 	playbookdeployment "k3f.io/kubeforce/agent/pkg/registry/agent/playbookdepoyment"
 	"k3f.io/kubeforce/agent/pkg/registry/agent/sysinfo"
 	"k3f.io/kubeforce/agent/pkg/registry/storage"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apiserver/pkg/registry/generic"
-	"k8s.io/apiserver/pkg/registry/rest"
-	genericapiserver "k8s.io/apiserver/pkg/server"
 )
 
 type StorageProvider struct{}

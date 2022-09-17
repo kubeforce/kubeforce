@@ -26,7 +26,7 @@ func NewTasks(name string) *Tasks {
 	}
 }
 
-// Tasks is an ansible tasks
+// Tasks describes an ansible tasks.
 type Tasks struct {
 	Name       string       `json:"name,omitempty"`
 	Hosts      string       `json:"hosts"`
@@ -35,7 +35,7 @@ type Tasks struct {
 	Tasks      []TaskModule `json:"tasks"`
 }
 
-// AddTasks adds tasks to ansible tasks module
+// AddTasks adds tasks to ansible tasks module.
 func (t *Tasks) AddTasks(tasks ...TaskModule) {
 	t.Tasks = append(t.Tasks, tasks...)
 }

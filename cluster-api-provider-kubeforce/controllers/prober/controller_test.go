@@ -97,7 +97,6 @@ func TestAddRemoveProbes(t *testing.T) {
 	}
 	logger := zap.New(zap.UseFlagOptions(&opts))
 	c := NewController(logger).(*controller)
-	//defer featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.StartupProbe, true)()
 	defer cleanup(t, c)
 	if err := expectProbes(c, nil); err != nil {
 		t.Error(err)
@@ -139,7 +138,9 @@ func TestUpdate(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 
-	go c.Start(ctx)
+	go func() {
+		_ = c.Start(ctx)
+	}()
 
 	probeHandler := newFakeProbeHandler("success-test", nil)
 	if updStatus := probeHandler.getUpdateStatus(); updStatus != nil {
@@ -203,6 +204,7 @@ const interval = 1 * time.Second
 
 // Wait for the given workers to exit & clean up.
 func waitForWorkerExit(t *testing.T, m *controller, workerKeys []string) error {
+	t.Helper()
 	for _, key := range workerKeys {
 		condition := func() (bool, error) {
 			_, exists := m.getWorker(key)
@@ -222,6 +224,7 @@ func waitForWorkerExit(t *testing.T, m *controller, workerKeys []string) error {
 
 // Wait for the given workers to exit & clean up.
 func waitForReadyStatus(t *testing.T, m *controller, key string, readyStatus metav1.ConditionStatus) error {
+	t.Helper()
 	condition := func() (bool, error) {
 		result, ok := m.resultManager.Get(key)
 		return ok && result.ToConditionStatus() == readyStatus, nil
@@ -259,6 +262,7 @@ func (m *controller) getWorker(key string) (*worker, bool) {
 
 // cleanup running probes to avoid leaking goroutines.
 func cleanup(t *testing.T, m *controller) {
+	t.Helper()
 	m.cleanup()
 
 	condition := func() (bool, error) {

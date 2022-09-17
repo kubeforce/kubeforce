@@ -21,12 +21,8 @@ import (
 	"context"
 	"fmt"
 
-	patchutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/patch"
-
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/names"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -40,6 +36,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/names"
+	patchutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/patch"
 )
 
 // KubeforceAgentGroupReconciler reconciles a KubeforceAgentGroup object.
@@ -109,13 +109,12 @@ func (r *KubeforceAgentGroupReconciler) SetupWithManager(logger logr.Logger, mgr
 		Complete(r)
 }
 
-func (r *KubeforceAgentGroupReconciler) reconcileDelete(ctx context.Context, agentGroup *infrav1.KubeforceAgentGroup) (ctrl.Result, error) {
+func (r *KubeforceAgentGroupReconciler) reconcileDelete(_ context.Context, agentGroup *infrav1.KubeforceAgentGroup) (ctrl.Result, error) {
 	controllerutil.RemoveFinalizer(agentGroup, infrav1.AgentGroupFinalizer)
 	return ctrl.Result{}, nil
 }
 
 func (r *KubeforceAgentGroupReconciler) reconcileNormal(ctx context.Context, agentGroup *infrav1.KubeforceAgentGroup) (ctrl.Result, error) {
-	//log := ctrl.LoggerFrom(ctx)
 	desiredAgents, err := r.desiredAgents(agentGroup)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "unable to get desired agents")
@@ -159,7 +158,7 @@ func (r *KubeforceAgentGroupReconciler) reconcileNormal(ctx context.Context, age
 	waitForAgents := make([]string, 0)
 	for _, agent := range agents {
 		if agent.Status.Phase == infrav1.AgentPhaseRunning &&
-			conditions.IsTrue(agent, infrav1.Healthy) &&
+			conditions.IsTrue(agent, infrav1.HealthyCondition) &&
 			agent.Status.ObservedGeneration == agent.Generation {
 			readyReplicas++
 		} else {

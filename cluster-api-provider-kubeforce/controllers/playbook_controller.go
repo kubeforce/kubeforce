@@ -23,13 +23,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	apiagent "k3f.io/kubeforce/agent/pkg/apis/agent"
-	"k3f.io/kubeforce/agent/pkg/apis/agent/v1alpha1"
-	agentclient "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
-	agentconditions "k3f.io/kubeforce/agent/pkg/util/conditions"
-	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
-	agentctrl "k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/agent"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -43,9 +36,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	apiagent "k3f.io/kubeforce/agent/pkg/apis/agent"
+	"k3f.io/kubeforce/agent/pkg/apis/agent/v1alpha1"
+	agentclient "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
+	agentconditions "k3f.io/kubeforce/agent/pkg/util/conditions"
+	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
+	agentctrl "k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/agent"
 )
 
-// PlaybookReconciler reconciles a Playbook object
+// PlaybookReconciler reconciles a Playbook object.
 type PlaybookReconciler struct {
 	Log              logr.Logger
 	Client           client.Client
@@ -134,6 +135,8 @@ func (r *PlaybookReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+// KubeforceAgentToPlaybook is a handler.ToRequestsFunc to be used to enqueue requests for reconciliation
+// for Playbook to update when one of the KubeforceAgent gets updated.
 func (r *PlaybookReconciler) KubeforceAgentToPlaybook(o client.Object) []ctrl.Request {
 	result := []ctrl.Request{}
 	a, ok := o.(*infrav1.KubeforceAgent)
@@ -155,6 +158,7 @@ func (r *PlaybookReconciler) KubeforceAgentToPlaybook(o client.Object) []ctrl.Re
 	return result
 }
 
+// GetKubeforceAgent returns the KubeforceAgent that controls this Playbook.
 func (r *PlaybookReconciler) GetKubeforceAgent(ctx context.Context, playbook *infrav1.Playbook) (*infrav1.KubeforceAgent, error) {
 	objectKey := client.ObjectKey{
 		Namespace: playbook.Namespace,
@@ -187,7 +191,7 @@ func (r *PlaybookReconciler) deleteExternalPlaybook(ctx context.Context, playboo
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
-	if kfAgent == nil || !agent.IsReady(kfAgent) {
+	if kfAgent == nil || !agent.IsHealthy(kfAgent) {
 		return nil
 	}
 	clientSet, err := r.AgentClientCache.GetClientSet(ctx, client.ObjectKeyFromObject(kfAgent))
@@ -225,7 +229,7 @@ func (r *PlaybookReconciler) reconcileNormal(ctx context.Context, playbook *infr
 		return ctrl.Result{}, nil
 	}
 
-	if !agent.IsReady(kfAgent) {
+	if !agent.IsHealthy(kfAgent) {
 		msg := "agent is not ready"
 		conditions.MarkFalse(playbook, infrav1.SynchronizationCondition, infrav1.WaitingForAgentReason, clusterv1.ConditionSeverityInfo, msg)
 		return ctrl.Result{}, nil

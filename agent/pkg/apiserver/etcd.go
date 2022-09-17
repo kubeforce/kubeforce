@@ -34,14 +34,13 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/client-go/util/keyutil"
-
-	certutil "k8s.io/client-go/util/cert"
-
 	"github.com/pkg/errors"
 	"go.etcd.io/etcd/client/pkg/v3/transport"
 	"go.etcd.io/etcd/client/pkg/v3/types"
 	"go.etcd.io/etcd/server/v3/embed"
+	certutil "k8s.io/client-go/util/cert"
+	"k8s.io/client-go/util/keyutil"
+
 	"k3f.io/kubeforce/agent/pkg/config"
 )
 
@@ -50,7 +49,7 @@ const etcdCaBaseName = "etcd-ca"
 const etcdCertBaseName = "etcd-server"
 const etcdClientBaseName = "etcd-client"
 
-// NewEtcdServer creates embedded etcd server
+// NewEtcdServer creates embedded etcd server.
 func NewEtcdServer(cfg config.EtcdConfig) (*EtcdServer, error) {
 	err := generateCerts(cfg.CertsDir)
 	if err != nil {
@@ -153,7 +152,7 @@ func (s *EtcdServer) Start(ctx context.Context) error {
 }
 
 // ReadyNotify returns a channel that will be closed when the server
-// is ready to serve client requests
+// is ready to serve client requests.
 func (s *EtcdServer) ReadyNotify() <-chan struct{} {
 	return s.started
 }
@@ -193,10 +192,10 @@ func generateCACert(dir, baseName, commonName string, org []string, key crypto.S
 	}
 	certPath := certFilePath(dir, baseName)
 	keyPath := keyFilePath(dir, baseName)
-	if err := ioutil.WriteFile(certPath, certBuffer.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(certPath, certBuffer.Bytes(), 0644); err != nil {
 		return nil, fmt.Errorf("failed to write cert to %s: %v", certPath, err)
 	}
-	if err := ioutil.WriteFile(keyPath, keyBytes, 0644); err != nil {
+	if err := os.WriteFile(keyPath, keyBytes, 0644); err != nil {
 		return nil, fmt.Errorf("failed to write key to %s: %v", keyPath, err)
 	}
 	return cert, err

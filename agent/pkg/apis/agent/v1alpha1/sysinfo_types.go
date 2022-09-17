@@ -35,7 +35,7 @@ type SysInfo struct {
 	Spec SysInfoSpec `json:"spec,omitempty"`
 }
 
-// SysInfoSpec defines the system information
+// SysInfoSpec defines the system information.
 type SysInfoSpec struct {
 	// Network is the network information
 	// +optional

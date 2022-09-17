@@ -43,7 +43,7 @@ type PlaybookDeploymentList struct {
 	Items []PlaybookDeployment `json:"items"`
 }
 
-// PlaybookTemplateSpec describes the data a playbook should have when created from a template
+// PlaybookTemplateSpec describes the data a playbook should have when created from a template.
 type PlaybookTemplateSpec struct {
 	// Standard object's metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
@@ -56,7 +56,7 @@ type PlaybookTemplateSpec struct {
 	Spec PlaybookSpec `json:"spec,omitempty"`
 }
 
-// PlaybookDeploymentSpec defines the desired state of PlaybookDeployment
+// PlaybookDeploymentSpec defines the desired state of PlaybookDeployment.
 type PlaybookDeploymentSpec struct {
 	// Template describes the playbook that will be created.
 	Template PlaybookTemplateSpec `json:"template"`
@@ -70,7 +70,7 @@ type PlaybookDeploymentSpec struct {
 	Paused bool `json:"paused,omitempty"`
 }
 
-// PlaybookDeploymentStatus defines the observed state of PlaybookDeployment
+// PlaybookDeploymentStatus defines the observed state of PlaybookDeployment.
 type PlaybookDeploymentStatus struct {
 	// The generation observed by the deployment controller.
 	// +optional

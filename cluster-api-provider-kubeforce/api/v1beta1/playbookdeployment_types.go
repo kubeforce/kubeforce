@@ -36,7 +36,7 @@ const (
 // +kubebuilder:printcolumn:name="ExternalName",type="string",JSONPath=".status.externalName"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation"
 
-// PlaybookDeployment is the Schema for the playbooks API
+// PlaybookDeployment is the Schema for the playbookdeployments API.
 type PlaybookDeployment struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -57,14 +57,14 @@ func (in *PlaybookDeployment) SetConditions(conditions clusterv1.Conditions) {
 
 //+kubebuilder:object:root=true
 
-// PlaybookDeploymentList contains a list of PlaybookDeployment
+// PlaybookDeploymentList contains a list of PlaybookDeployment.
 type PlaybookDeploymentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []PlaybookDeployment `json:"items"`
 }
 
-// PlaybookDeploymentSpec defines the desired state of PlaybookDeployment
+// PlaybookDeploymentSpec defines the desired state of PlaybookDeployment.
 type PlaybookDeploymentSpec struct {
 	// AgentRef is a reference to the agent
 	AgentRef corev1.LocalObjectReference `json:"agentRef"`
@@ -80,7 +80,7 @@ type PlaybookDeploymentSpec struct {
 	Paused bool `json:"paused,omitempty"`
 }
 
-// PlaybookTemplateSpec describes the data a playbook should have when created from a template
+// PlaybookTemplateSpec describes the data a playbook should have when created from a template.
 type PlaybookTemplateSpec struct {
 	// Standard object's metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
@@ -93,7 +93,7 @@ type PlaybookTemplateSpec struct {
 	Spec RemotePlaybookSpec `json:"spec,omitempty"`
 }
 
-// PlaybookDeploymentStatus defines the observed state of PlaybookDeployment
+// PlaybookDeploymentStatus defines the observed state of PlaybookDeployment.
 type PlaybookDeploymentStatus struct {
 	// ExternalName is the name of PlaybookDeployment on the node
 	// +optional

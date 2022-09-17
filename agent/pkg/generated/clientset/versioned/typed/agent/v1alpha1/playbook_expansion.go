@@ -17,9 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
+	restclient "k8s.io/client-go/rest"
+
 	"k3f.io/kubeforce/agent/pkg/apis/agent/v1alpha1"
 	"k3f.io/kubeforce/agent/pkg/generated/clientset/versioned/scheme"
-	restclient "k8s.io/client-go/rest"
 )
 
 // The PlaybookExpansion interface allows manually adding extra methods to the PlaybookInterface.
@@ -27,7 +28,7 @@ type PlaybookExpansion interface {
 	GetLogs(name string, opts *v1alpha1.PlaybookLogOptions) *restclient.Request
 }
 
-// GetLogs constructs a request for getting the logs for a playbook
+// GetLogs constructs a request for getting the logs for a playbook.
 func (c *playbooks) GetLogs(name string, opts *v1alpha1.PlaybookLogOptions) *restclient.Request {
 	return c.client.Get().Name(name).Resource("playbooks").SubResource("log").VersionedParams(opts, scheme.ParameterCodec)
 }

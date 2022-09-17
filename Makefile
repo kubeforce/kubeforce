@@ -25,8 +25,11 @@ TOOLS_DIR := hack/tools
 help:  ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[0-9A-Za-z_-]+:.*?##/ { printf "  \033[36m%-45s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-.PHONY: all
-all: tarball ## Build the binaries and docker images
+## --------------------------------------
+## Testing
+## --------------------------------------
+
+##@ test:
 
 .PHONY: test
 test: agent-test controller-test ## Run unit tests with coverage analysis
@@ -35,13 +38,19 @@ test: agent-test controller-test ## Run unit tests with coverage analysis
 agent-test: ## Run the agent unit tests
 	$(MAKE) -C agent test
 
-.PHONY: agent
-agent: ## Build the agent binaries
-	$(MAKE) -C agent agent-build-linux-all
-
 .PHONY: controller-test
 controller-test: ## Run the controller unit tests
 	$(MAKE) -C cluster-api-provider-kubeforce test
+
+## --------------------------------------
+## Building
+## --------------------------------------
+
+##@ build:
+
+.PHONY: agent
+agent: ## Build the agent binaries
+	$(MAKE) -C agent agent-build-linux-all
 
 .PHONY: controller-build
 controller-build: ## Build the controller docker images

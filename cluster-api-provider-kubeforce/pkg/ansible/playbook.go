@@ -16,12 +16,13 @@ limitations under the License.
 
 package ansible
 
+// Playbook is the Schema for the playbooks API.
 type Playbook struct {
 	Files      map[string]string `json:"files,omitempty"`
 	Entrypoint string            `json:"entrypoint"`
 }
 
-// NewPlaybook creates a new Playbook
+// NewPlaybook creates a new Playbook.
 func NewPlaybook(entrypoint string) *Playbook {
 	return &Playbook{
 		Entrypoint: entrypoint,

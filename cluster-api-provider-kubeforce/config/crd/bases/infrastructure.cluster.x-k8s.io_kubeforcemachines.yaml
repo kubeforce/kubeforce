@@ -37,7 +37,7 @@ spec:
     name: v1beta1
     schema:
       openAPIV3Schema:
-        description: KubeforceMachine is the Schema for the kubeforcemachines API
+        description: KubeforceMachine is the Schema for the kubeforcemachines API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -52,7 +52,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: KubeforceMachineSpec defines the desired state of KubeforceMachine
+            description: KubeforceMachineSpec defines the desired state of KubeforceMachine.
             properties:
               agentRef:
                 description: AgentRef is a reference to the agent resource that holds
@@ -114,7 +114,7 @@ spec:
                 type: string
             type: object
           status:
-            description: KubeforceMachineStatus defines the observed state of KubeforceMachine
+            description: KubeforceMachineStatus defines the observed state of KubeforceMachine.
             properties:
               conditions:
                 description: Conditions defines current service state of the KubeforceMachine.
@@ -171,6 +171,8 @@ spec:
                 type: integer
               playbooks:
                 additionalProperties:
+                  description: PlaybookInfo describes the high-level summary of controlled
+                    playbooks.
                   properties:
                     externalPhase:
                       description: Phase is the phase of a Playbook, high-level summary

@@ -21,6 +21,7 @@ import (
 	"time"
 )
 
+// This is a set of characters that can be used in the string generator.
 const (
 	LowerCaseLetters = "abcdefghijklmnopqrstuvwxyz"
 	UpperCaseLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -28,6 +29,7 @@ const (
 	Charset          = LowerCaseLetters + UpperCaseLetters + Numbers
 )
 
+// StringWithCharset returns the generated string.
 func StringWithCharset(length int, charset string) string {
 	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 	b := make([]byte, length)
@@ -37,6 +39,7 @@ func StringWithCharset(length int, charset string) string {
 	return string(b)
 }
 
+// String returns a generated string of a certain length, using the entire character set.
 func String(length int) string {
 	return StringWithCharset(length, Charset)
 }

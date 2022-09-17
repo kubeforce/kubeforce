@@ -21,7 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// Playbook
+// Playbook is the Schema for the playbooks API.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type Playbook struct {
 	metav1.TypeMeta
@@ -31,7 +31,7 @@ type Playbook struct {
 	Status PlaybookStatus
 }
 
-// PlaybookList
+// PlaybookList defines multiple playbooks.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type PlaybookList struct {
 	metav1.TypeMeta
@@ -40,7 +40,7 @@ type PlaybookList struct {
 	Items []Playbook
 }
 
-// PlaybookSpec defines the desired state of Playbook
+// PlaybookSpec defines the desired state of Playbook.
 type PlaybookSpec struct {
 	// Policy is the playbook execution policy
 	// +optional
@@ -53,7 +53,7 @@ type PlaybookSpec struct {
 	Entrypoint string
 }
 
-// PlaybookStatus defines the observed state of Playbook
+// PlaybookStatus defines the observed state of Playbook.
 type PlaybookStatus struct {
 	// Phase is the phase of a Playbook, high-level summary of where the Playbook is in its lifecycle.
 	// +optional
@@ -66,7 +66,7 @@ type PlaybookStatus struct {
 	Failed int32
 }
 
-// Policy defines the playbook execution policy
+// Policy defines the playbook execution policy.
 type Policy struct {
 	// Specifies the duration in seconds relative to the startTime that the job may be active
 	// before the system tries to terminate it.
@@ -98,7 +98,7 @@ const (
 	PlaybookUnknown PlaybookPhase = "Unknown"
 )
 
-// Conditions provide observations of the operational state
+// Conditions provide observations of the operational state.
 type Conditions []Condition
 
 // ConditionType is a valid value for Condition.Type.

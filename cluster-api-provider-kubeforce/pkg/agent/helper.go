@@ -29,21 +29,23 @@ import (
 	scp "github.com/bramvdbogaerde/go-scp"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
-	"k3f.io/kubeforce/agent/pkg/config"
-	configutils "k3f.io/kubeforce/agent/pkg/config/utils"
-	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/repository"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/secret"
-	stringutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/strings"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/version"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"k3f.io/kubeforce/agent/pkg/config"
+	configutils "k3f.io/kubeforce/agent/pkg/config/utils"
+	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/repository"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/secret"
+	stringutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/strings"
 )
 
+// GetHelper returns agent helper.
 func GetHelper(ctx context.Context, client client.Client, storage *repository.Storage, kfAgent *infrav1.KubeforceAgent) (*Helper, error) {
 	agentKeys, err := GetKeys(ctx, client, kfAgent)
 	if err != nil {
@@ -60,6 +62,7 @@ func GetHelper(ctx context.Context, client client.Client, storage *repository.St
 	return agentHelper, nil
 }
 
+// NewHelper creates a new agent helper.
 func NewHelper(client client.Client, storage *repository.Storage, kfAgent *infrav1.KubeforceAgent, keys *Keys, server string) (*Helper, error) {
 	return &Helper{
 		client:  client,
@@ -171,6 +174,7 @@ func (h *Helper) copyAgentClientConfig(ctx context.Context, sshClient *ssh.Clien
 	return nil
 }
 
+// Install installs agent to the host.
 func (h *Helper) Install(ctx context.Context) error {
 	sshClient, err := h.getSshClient(ctx)
 	if err != nil {
@@ -230,7 +234,7 @@ func (h *Helper) GetSshAuthMethod(ctx context.Context) (ssh.AuthMethod, error) {
 		Namespace: h.agent.Namespace,
 		Name:      h.agent.Spec.SSH.SecretName,
 	}
-	s := &v1.Secret{}
+	s := &corev1.Secret{}
 	err := h.client.Get(ctx, key, s)
 	if err != nil {
 		return nil, err
@@ -317,8 +321,8 @@ func (h *Helper) runCommand(ctx context.Context, client *ssh.Client, cmd string)
 	go func() {
 		select {
 		case <-ctx.Done():
-			session.Signal(ssh.SIGINT)
-			session.Close()
+			_ = session.Signal(ssh.SIGINT)
+			_ = session.Close()
 		case <-exit:
 		}
 	}()
@@ -345,13 +349,13 @@ func (h *Helper) agentConfig() ([]byte, error) {
 		Spec: config.ConfigSpec{
 			Port: 5443,
 			TLS: config.TLS{
-				CertData:       h.keys.tls.Cert,
-				PrivateKeyData: h.keys.tls.Key,
+				CertData:       h.keys.TLS.Cert,
+				PrivateKeyData: h.keys.TLS.Key,
 				TLSMinVersion:  "VersionTLS13",
 			},
 			Authentication: config.AgentAuthentication{
 				X509: config.AgentX509Authentication{
-					ClientCAData: h.keys.authClient.CA,
+					ClientCAData: h.keys.AuthClient.CA,
 				},
 			},
 			ShutdownGracePeriod: metav1.Duration{

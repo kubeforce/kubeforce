@@ -37,6 +37,7 @@ type ResultManager interface {
 	Updates() <-chan Update
 }
 
+// NewResultItem creates a new ResultItem.
 func NewResultItem(r ProbeResult, reason, message string) ResultItem {
 	return ResultItem{
 		ProbeResult: r,
@@ -46,6 +47,7 @@ func NewResultItem(r ProbeResult, reason, message string) ResultItem {
 	}
 }
 
+// ResultItem describe the result of probe result.
 type ResultItem struct {
 	ProbeResult
 	Time    time.Time
@@ -53,6 +55,7 @@ type ResultItem struct {
 	Message string
 }
 
+// ToConditionStatus returns the ConditionStatus corresponding to this ResultItem.
 func (i ResultItem) ToConditionStatus() metav1.ConditionStatus {
 	if i.ProbeResult {
 		return metav1.ConditionTrue
@@ -97,6 +100,7 @@ func NewResultManager() ResultManager {
 	}
 }
 
+// Get returns the cached ProbeResult for the container with the given ID.
 func (m *resultManager) Get(key string) (ResultItem, bool) {
 	m.RLock()
 	defer m.RUnlock()
@@ -104,9 +108,10 @@ func (m *resultManager) Get(key string) (ResultItem, bool) {
 	return ProbeResult, found
 }
 
-func (m *resultManager) Set(key string, ProbeResult ResultItem) {
-	if m.setInternal(key, ProbeResult) {
-		m.updates <- Update{key, ProbeResult}
+// Set sets the cached ProbeResult for the container with the given ID.
+func (m *resultManager) Set(key string, probeResult ResultItem) {
+	if m.setInternal(key, probeResult) {
+		m.updates <- Update{key, probeResult}
 	}
 }
 

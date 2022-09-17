@@ -26,10 +26,11 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+
 	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
 )
 
-// NewStorage creates a new file storage
+// NewStorage creates a new file storage.
 func NewStorage(log logr.Logger, basePath string) *Storage {
 	return &Storage{
 		log:        log,
@@ -38,6 +39,7 @@ func NewStorage(log logr.Logger, basePath string) *Storage {
 	}
 }
 
+// Storage is a file cache for storing downloaded files.
 type Storage struct {
 	log        logr.Logger
 	basePath   string
@@ -46,6 +48,7 @@ type Storage struct {
 
 type downloader func(ctx context.Context, w io.Writer) error
 
+// GetHTTPFileGetter return FileGetter for HTTPRepository.
 func (s *Storage) GetHTTPFileGetter(r infrav1.HTTPRepository) FileGetter {
 	return NewHTTPFileGetter(s, r)
 }
@@ -91,15 +94,15 @@ func (s *Storage) getFile(ctx context.Context, relativePath string, download dow
 		return "", errors.Errorf("temporary file found %q", fullTmpPath)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(fullPath), 0o750); err != nil {
 		return "", err
 	}
-	f, err := os.OpenFile(fullTmpPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o666)
+	f, err := os.OpenFile(fullTmpPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o660)
 	if err != nil {
 		return "", err
 	}
-	defer os.Remove(fullTmpPath)
 	defer f.Close()
+	defer os.Remove(fullTmpPath)
 
 	s.log.Info("downloading", "file", fullTmpPath)
 	err = download(ctx, f)

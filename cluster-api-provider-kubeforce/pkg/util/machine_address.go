@@ -45,7 +45,6 @@ func GetAddresses(addresses clusterv1.MachineAddresses, types ...clusterv1.Machi
 				result = append(result, address.Address)
 			}
 		}
-
 	}
 	return result
 }

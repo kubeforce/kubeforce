@@ -29,10 +29,10 @@ import (
 type ProbeResult bool
 
 const (
-	// ResultSuccess is encoded as "true" (type Result)
+	// ResultSuccess is encoded as "true" (type Result).
 	ResultSuccess ProbeResult = true
 
-	// ResultFailure is encoded as "false" (type Result)
+	// ResultFailure is encoded as "false" (type Result).
 	ResultFailure ProbeResult = false
 )
 
@@ -54,7 +54,7 @@ var ProberResults = metrics.NewCounterVec(
 		"result"},
 )
 
-// ProbeParams describes a health check params
+// ProbeParams describes a health check params.
 type ProbeParams struct {
 	// Number of seconds after which the probe times out.
 	// Defaults to 3 second. Minimum value is 1.
@@ -161,11 +161,15 @@ func (m *controller) GetCurrentStatus(key string) *ResultItem {
 }
 
 func (m *controller) updateStatus(ctx context.Context) {
-	update := <-m.resultManager.Updates()
-	m.workerLock.RLock()
-	defer m.workerLock.RUnlock()
-	if worker, ok := m.workers[update.Key]; ok {
-		worker.probe.UpdateStatus(ctx, update.Result)
+	select {
+	case update := <-m.resultManager.Updates():
+		m.workerLock.RLock()
+		defer m.workerLock.RUnlock()
+		if worker, ok := m.workers[update.Key]; ok {
+			worker.probe.UpdateStatus(ctx, update.Result)
+		}
+	case <-ctx.Done():
+		return
 	}
 }
 

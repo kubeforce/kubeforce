@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"os"
 
-	"k3f.io/kubeforce/agent/pkg/version"
-
 	"github.com/spf13/cobra"
+
+	"k3f.io/kubeforce/agent/pkg/version"
 )
 
 var (
@@ -31,7 +31,7 @@ var (
 agent version`
 )
 
-// NewCmdVersion returns a cobra command for fetching versions
+// NewCmdVersion returns a cobra command for fetching versions.
 func NewCmdVersion() *cobra.Command {
 	o := version.NewOptions()
 	cmd := &cobra.Command{

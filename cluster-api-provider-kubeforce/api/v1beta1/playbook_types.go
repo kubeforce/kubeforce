@@ -27,34 +27,34 @@ const (
 	// removing it from the apiserver.
 	PlaybookFinalizer = "playbook.infrastructure.cluster.x-k8s.io"
 
-	// PlaybookRoleLabelName is the role of the playbook
+	// PlaybookRoleLabelName is the role of the playbook.
 	PlaybookRoleLabelName = "playbook.infrastructure.cluster.x-k8s.io/role"
 
-	// PlaybookControllerNameLabelName is a name of the playbook controller
+	// PlaybookControllerNameLabelName is a name of the playbook controller.
 	PlaybookControllerNameLabelName = "playbook.infrastructure.cluster.x-k8s.io/controller-name"
 
 	// PlaybookControllerKindLabelName is a group and a kind of the playbook controller.
 	// format: <group>.<kind>
 	PlaybookControllerKindLabelName = "playbook.infrastructure.cluster.x-k8s.io/controller-kind"
 
-	// PlaybookAgentNameLabelName is a name of the agent
+	// PlaybookAgentNameLabelName is a name of the agent.
 	PlaybookAgentNameLabelName = "playbook.infrastructure.cluster.x-k8s.io/agent"
 )
 
-// PlaybookSpec defines the desired state of Playbook
+// PlaybookSpec defines the desired state of Playbook.
 type PlaybookSpec struct {
 	RemotePlaybookSpec `json:",inline"`
 	// AgentRef is a reference to the agent
 	AgentRef corev1.LocalObjectReference `json:"agentRef"`
 }
 
-// RemotePlaybookSpec describes the remote Playbook in the agent
+// RemotePlaybookSpec describes the remote Playbook in the agent.
 type RemotePlaybookSpec struct {
 	Files      map[string]string `json:"files,omitempty"`
 	Entrypoint string            `json:"entrypoint,omitempty"`
 }
 
-// PlaybookStatus defines the observed state of Playbook
+// PlaybookStatus defines the observed state of Playbook.
 type PlaybookStatus struct {
 	// ExternalName is the name of playbook on the node
 	// +optional
@@ -86,7 +86,7 @@ type PlaybookStatus struct {
 // +kubebuilder:printcolumn:name="Ready",type="boolean",JSONPath=".status.ready"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation"
 
-// Playbook is the Schema for the playbooks API
+// Playbook is the Schema for the playbooks API.
 type Playbook struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -107,7 +107,7 @@ func (in *Playbook) SetConditions(conditions clusterv1.Conditions) {
 
 //+kubebuilder:object:root=true
 
-// PlaybookList contains a list of Playbook
+// PlaybookList contains a list of Playbook.
 type PlaybookList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

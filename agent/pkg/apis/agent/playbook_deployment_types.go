@@ -22,25 +22,28 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// PlaybookDeployment is
+// PlaybookDeployment provides declarative updates for Playbook.
 type PlaybookDeployment struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
 
-	Spec   PlaybookDeploymentSpec
+	// Specification of the desired behavior of the Deployment.
+	Spec PlaybookDeploymentSpec
+	// Most recently observed status of the Deployment.
+	// +optional
 	Status PlaybookDeploymentStatus
 }
 
-// PlaybookDeploymentList
+// PlaybookDeploymentList defines multiple deployments.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type PlaybookDeploymentList struct {
 	metav1.TypeMeta
 	metav1.ListMeta
-
+	// Items is the list of deployments.
 	Items []PlaybookDeployment
 }
 
-// PlaybookTemplateSpec describes the data a playbook should have when created from a template
+// PlaybookTemplateSpec describes the data a playbook should have when created from a template.
 type PlaybookTemplateSpec struct {
 	// Standard object's metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
@@ -53,7 +56,7 @@ type PlaybookTemplateSpec struct {
 	Spec PlaybookSpec
 }
 
-// PlaybookDeploymentSpec defines the desired state of PlaybookDeployment
+// PlaybookDeploymentSpec defines the desired state of PlaybookDeployment.
 type PlaybookDeploymentSpec struct {
 	// Template describes the playbook that will be created.
 	Template PlaybookTemplateSpec
@@ -67,7 +70,7 @@ type PlaybookDeploymentSpec struct {
 	Paused bool
 }
 
-// PlaybookDeploymentStatus defines the observed state of PlaybookDeployment
+// PlaybookDeploymentStatus defines the observed state of PlaybookDeployment.
 type PlaybookDeploymentStatus struct {
 	// The generation observed by the deployment controller.
 	// +optional

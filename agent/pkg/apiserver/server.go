@@ -27,19 +27,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	apisinstall "k3f.io/kubeforce/agent/pkg/apis/agent/install"
-	"k3f.io/kubeforce/agent/pkg/apis/agent/v1alpha1"
-	"k3f.io/kubeforce/agent/pkg/config"
-	generatedopenapi "k3f.io/kubeforce/agent/pkg/generated/openapi"
-	"k3f.io/kubeforce/agent/pkg/install"
-	agentrest "k3f.io/kubeforce/agent/pkg/registry/agent/rest"
-	"k3f.io/kubeforce/agent/pkg/registry/storage"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/authenticatorfactory"
@@ -62,6 +55,14 @@ import (
 	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
 	openapicommon "k8s.io/kube-openapi/pkg/common"
+
+	apisinstall "k3f.io/kubeforce/agent/pkg/apis/agent/install"
+	"k3f.io/kubeforce/agent/pkg/apis/agent/v1alpha1"
+	"k3f.io/kubeforce/agent/pkg/config"
+	generatedopenapi "k3f.io/kubeforce/agent/pkg/generated/openapi"
+	"k3f.io/kubeforce/agent/pkg/install"
+	agentrest "k3f.io/kubeforce/agent/pkg/registry/agent/rest"
+	"k3f.io/kubeforce/agent/pkg/registry/storage"
 )
 
 var (
@@ -70,7 +71,7 @@ var (
 	// Codecs provides methods for retrieving codecs and serializers for specific
 	// versions and content types.
 	Codecs = serializer.NewCodecFactory(Scheme)
-
+	// ParameterCodec handles versioning of objects that are converted to query parameters.
 	ParameterCodec = runtime.NewParameterCodec(Scheme)
 )
 
@@ -154,7 +155,7 @@ func (s *Server) init() error {
 	recommendedOptions.SecureServing = &options.SecureServingOptionsWithLoopback{}
 	recommendedOptions.Etcd.StorageConfig.Paging = utilfeature.DefaultFeatureGate.Enabled(features.APIListChunking)
 
-	if err := utilerrors.NewAggregate(recommendedOptions.Validate()); err != nil {
+	if err := kerrors.NewAggregate(recommendedOptions.Validate()); err != nil {
 		return err
 	}
 
@@ -215,7 +216,7 @@ func (s *Server) init() error {
 	return nil
 }
 
-// InstallDefaultHandlers registers the default set of supported HTTP request
+// InstallDefaultHandlers registers the default set of supported HTTP request.
 func (s *Server) InstallDefaultHandlers() {
 	klog.InfoS("Adding default handlers to agent server")
 	s.genericAPIServer.Handler.NonGoRestfulMux.HandleFunc("/uninstall", s.uninstall)
@@ -244,7 +245,7 @@ func createSecureServing(cfg config.ConfigSpec) (*server.SecureServingInfo, erro
 		if err != nil {
 			return nil, err
 		}
-	} else if len(cfg.TLS.CertFile) != 0 || len(cfg.TLS.PrivateKeyFile) != 0 {
+	} else if cfg.TLS.CertFile != "" || cfg.TLS.PrivateKeyFile != "" {
 		c.Cert, err = dynamiccertificates.NewDynamicServingContentFromFiles("serving-cert", cfg.TLS.CertFile, cfg.TLS.PrivateKeyFile)
 		if err != nil {
 			return nil, err
@@ -261,7 +262,7 @@ func createSecureServing(cfg config.ConfigSpec) (*server.SecureServingInfo, erro
 		c.CipherSuites = cipherSuites
 	}
 
-	if len(cfg.TLS.TLSMinVersion) != 0 {
+	if cfg.TLS.TLSMinVersion != "" {
 		minTLSVersion, err := cliflag.TLSVersion(cfg.TLS.TLSMinVersion)
 		if err != nil {
 			return nil, errors.Wrapf(err, "use tls version from https://golang.org/pkg/crypto/tls/#pkg-constants")

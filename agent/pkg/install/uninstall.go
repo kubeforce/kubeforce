@@ -23,11 +23,12 @@ import (
 
 	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/pkg/errors"
+
 	"k3f.io/kubeforce/agent/pkg/config"
 	configutils "k3f.io/kubeforce/agent/pkg/config/utils"
 )
 
-// Uninstall uninstalls agent as the systemd service and removes data files
+// Uninstall uninstalls agent as the systemd service and removes data files.
 func Uninstall(ctx context.Context, cfgSpec *config.ConfigSpec, wait bool) error {
 	if cfgSpec == nil {
 		cfg, err := findConfig()

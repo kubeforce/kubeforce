@@ -20,12 +20,13 @@ import (
 	"fmt"
 
 	"github.com/google/go-cmp/cmp"
-	"k3f.io/kubeforce/agent/pkg/apis/agent"
 	apimachineryvalidation "k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	"k3f.io/kubeforce/agent/pkg/apis/agent"
 )
 
-// ValidatePlaybookCreate validates a playbook in the context of its initial create
+// ValidatePlaybookCreate validates a playbook in the context of its initial create.
 func ValidatePlaybookCreate(obj *agent.Playbook) field.ErrorList {
 	allErrs := apimachineryvalidation.ValidateObjectMeta(&obj.ObjectMeta, false, apimachineryvalidation.NameIsDNSSubdomain, field.NewPath("metadata"))
 	allErrs = append(allErrs, validatePlaybookSpec(&obj.Spec, field.NewPath("spec"))...)
@@ -57,7 +58,7 @@ func validatePolicy(p *agent.Policy, fieldPath *field.Path) field.ErrorList {
 	return allErrs
 }
 
-// ValidatePlaybookUpdate tests to see if the update is legal. The agent.Playbook is an immutable object
+// ValidatePlaybookUpdate tests to see if the update is legal. The agent.Playbook is an immutable object.
 func ValidatePlaybookUpdate(newObj *agent.Playbook, oldObj *agent.Playbook) field.ErrorList {
 	allErrs := apimachineryvalidation.ValidateObjectMetaUpdate(&newObj.ObjectMeta, &oldObj.ObjectMeta, field.NewPath("metadata"))
 	if !cmp.Equal(newObj.Spec, oldObj.Spec) {
@@ -83,7 +84,7 @@ func ValidatePlaybookLogOptions(opts *agent.PlaybookLogOptions) field.ErrorList 
 	return allErrs
 }
 
-// ValidatePlaybookDeploymentCreate validates a PlaybookDeployment in the context of its initial create
+// ValidatePlaybookDeploymentCreate validates a PlaybookDeployment in the context of its initial create.
 func ValidatePlaybookDeploymentCreate(obj *agent.PlaybookDeployment) field.ErrorList {
 	allErrs := apimachineryvalidation.ValidateObjectMeta(&obj.ObjectMeta, false, apimachineryvalidation.NameIsDNSSubdomain, field.NewPath("metadata"))
 	allErrs = append(allErrs, validatePlaybookSpec(&obj.Spec.Template.Spec, field.NewPath("spec", "template", "spec"))...)

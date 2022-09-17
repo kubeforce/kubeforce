@@ -19,13 +19,14 @@ package playbookdeployment
 import (
 	"context"
 
-	"k3f.io/kubeforce/agent/pkg/apis/agent"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/registry/generic"
 	genericregistry "k8s.io/apiserver/pkg/registry/generic/registry"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
+
+	"k3f.io/kubeforce/agent/pkg/apis/agent"
 )
 
 var (
@@ -60,7 +61,7 @@ func NewREST(scheme *runtime.Scheme, optsGetter generic.RESTOptionsGetter) (*RES
 	return &REST{store}, &StatusREST{store: &statusStore}, nil
 }
 
-// REST implements a RESTStorage for playbooks
+// REST implements a RESTStorage for playbooks.
 type REST struct {
 	*genericregistry.Store
 }
@@ -70,7 +71,7 @@ func (r *REST) ShortNames() []string {
 	return []string{"pbd"}
 }
 
-// StatusREST implements the REST endpoint for changing the status of a pod.
+// StatusREST implements the REST endpoint for changing the status of a playbookdeployment.
 type StatusREST struct {
 	store *genericregistry.Store
 }
@@ -79,7 +80,7 @@ type StatusREST struct {
 func (r *StatusREST) Destroy() {
 }
 
-// New creates a new pod resource
+// New creates a new PlaybookDeployment resource.
 func (r *StatusREST) New() runtime.Object {
 	return &agent.PlaybookDeployment{}
 }

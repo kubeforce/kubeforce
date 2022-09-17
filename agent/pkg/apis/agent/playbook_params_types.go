@@ -20,7 +20,7 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// PlaybookLogOptions is the query options for a Playbook's logs REST call
+// PlaybookLogOptions is the query options for a Playbook's logs REST call.
 type PlaybookLogOptions struct {
 	metav1.TypeMeta
 	// If true, follow the logs

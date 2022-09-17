@@ -14,15 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package fake
-
-import (
-	"k8s.io/client-go/rest"
-
-	"k3f.io/kubeforce/agent/pkg/apis/agent/v1alpha1"
-)
-
-// GetLogs constructs a request for getting the logs for a playbook.
-func (c *FakePlaybooks) GetLogs(name string, opts *v1alpha1.PlaybookLogOptions) *rest.Request {
-	return nil
-}
+// Package ansible implements the installation of ansible on the host
+package ansible

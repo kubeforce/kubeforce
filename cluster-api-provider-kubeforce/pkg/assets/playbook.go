@@ -22,8 +22,9 @@ import (
 	"path/filepath"
 
 	"github.com/pkg/errors"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/ansible"
 	"sigs.k8s.io/yaml"
+
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/ansible"
 )
 
 var (
@@ -35,12 +36,15 @@ var (
 type PlaybookName string
 
 const (
-	// PlaybookInstaller is a playbook to install containerd and kubelet on the node
-	PlaybookInstaller    PlaybookName = "installer"
-	PlaybookCleaner      PlaybookName = "cleaner"
+	// PlaybookInstaller is a playbook to install all kubernetes components on the host.
+	PlaybookInstaller PlaybookName = "installer"
+	// PlaybookCleaner is a playbook to clean up the host.
+	PlaybookCleaner PlaybookName = "cleaner"
+	// PlaybookLoadbalancer is a playbook to install a loadbalancer  on the host.
 	PlaybookLoadbalancer PlaybookName = "loadbalancer"
 )
 
+// GetPlaybook return a playbook by name.
 func GetPlaybook(name PlaybookName, vars map[string]interface{}) (*ansible.Playbook, error) {
 	playbook := ansible.NewPlaybook("playbook.yaml")
 	if err := addFiles("", path.Join("playbooks", string(name)), playbook); err != nil {

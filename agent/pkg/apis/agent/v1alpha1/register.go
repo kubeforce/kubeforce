@@ -17,23 +17,25 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"k3f.io/kubeforce/agent/pkg/apis/agent"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"k3f.io/kubeforce/agent/pkg/apis/agent"
 )
 
-// GroupName is the group name use in this package
+// GroupName is the group name use in this package.
 const GroupName = agent.GroupName
 
-// SchemeGroupVersion is group version used to register these objects
+// SchemeGroupVersion is group version used to register these objects.
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
 
 var (
+	// SchemeBuilder is the scheme builder with scheme init functions to run for this API package.
 	SchemeBuilder      = runtime.NewSchemeBuilder(addKnownTypes, RegisterDefaults, RegisterConversions)
 	localSchemeBuilder = &SchemeBuilder
 
-	// AddToScheme adds this group to a scheme.
+	// AddToScheme is a global function that registers this API group & version to a scheme.
 	AddToScheme = localSchemeBuilder.AddToScheme
 )
 

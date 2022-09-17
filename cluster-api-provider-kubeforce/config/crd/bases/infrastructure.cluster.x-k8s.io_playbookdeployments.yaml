@@ -35,7 +35,8 @@ spec:
     name: v1beta1
     schema:
       openAPIV3Schema:
-        description: PlaybookDeployment is the Schema for the playbooks API
+        description: PlaybookDeployment is the Schema for the playbookdeployments
+          API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -50,7 +51,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: PlaybookDeploymentSpec defines the desired state of PlaybookDeployment
+            description: PlaybookDeploymentSpec defines the desired state of PlaybookDeployment.
             properties:
               agentRef:
                 description: AgentRef is a reference to the agent
@@ -110,7 +111,7 @@ spec:
             - template
             type: object
           status:
-            description: PlaybookDeploymentStatus defines the observed state of PlaybookDeployment
+            description: PlaybookDeploymentStatus defines the observed state of PlaybookDeployment.
             properties:
               conditions:
                 description: Conditions defines current service state of the PlaybookDeployment.

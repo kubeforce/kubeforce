@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"k3f.io/kubeforce/agent/pkg/apis/agent"
-	"k3f.io/kubeforce/agent/pkg/apis/agent/validation"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,14 +29,17 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/apiserver/pkg/storage/names"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
+
+	"k3f.io/kubeforce/agent/pkg/apis/agent"
+	"k3f.io/kubeforce/agent/pkg/apis/agent/validation"
 )
 
-// NewStrategy creates and returns a playbookStrategy instance
+// NewStrategy creates and returns a playbookStrategy instance.
 func NewStrategy(typer runtime.ObjectTyper) playbookStrategy {
 	return playbookStrategy{typer, names.SimpleNameGenerator}
 }
 
-// GetAttrs returns labels.Set, fields.Set, and error in case the given runtime.Object is not a Fischer
+// GetAttrs returns labels.Set, fields.Set, and error in case the given runtime.Object is not a Fischer.
 func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
 	apiserver, ok := obj.(*agent.Playbook)
 	if !ok {
@@ -101,7 +102,7 @@ func (playbookStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.O
 	newObj.Status = oldObj.Status
 }
 
-// Validate validates a new playbook
+// Validate validates a new playbook.
 func (playbookStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
 	pb := obj.(*agent.Playbook)
 	return validation.ValidatePlaybookCreate(pb)
@@ -112,7 +113,7 @@ func (playbookStrategy) AllowCreateOnUpdate() bool {
 	return false
 }
 
-// AllowUnconditionalUpdate allows playbooks to be overwritten
+// AllowUnconditionalUpdate allows playbooks to be overwritten.
 func (playbookStrategy) AllowUnconditionalUpdate() bool {
 	return false
 }
@@ -148,7 +149,7 @@ type playbookStatusStrategy struct {
 	playbookStrategy
 }
 
-// NewStatusStrategy creates and returns a playbookStatusStrategy instance
+// NewStatusStrategy creates and returns a playbookStatusStrategy instance.
 func NewStatusStrategy(typer runtime.ObjectTyper) playbookStatusStrategy {
 	return playbookStatusStrategy{NewStrategy(typer)}
 }

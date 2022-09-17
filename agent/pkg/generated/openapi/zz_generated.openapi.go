@@ -245,7 +245,7 @@ func schema_pkg_apis_agent_v1alpha1_Playbook(ref common.ReferenceCallback) commo
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Playbook",
+				Description: "Playbook is the Schema for the playbooks API.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -388,7 +388,7 @@ func schema_pkg_apis_agent_v1alpha1_PlaybookDeploymentSpec(ref common.ReferenceC
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PlaybookDeploymentSpec defines the desired state of PlaybookDeployment",
+				Description: "PlaybookDeploymentSpec defines the desired state of PlaybookDeployment.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"template": {
@@ -425,7 +425,7 @@ func schema_pkg_apis_agent_v1alpha1_PlaybookDeploymentStatus(ref common.Referenc
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PlaybookDeploymentStatus defines the observed state of PlaybookDeployment",
+				Description: "PlaybookDeploymentStatus defines the observed state of PlaybookDeployment.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"observedGeneration": {
@@ -571,7 +571,7 @@ func schema_pkg_apis_agent_v1alpha1_PlaybookSpec(ref common.ReferenceCallback) c
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PlaybookSpec defines the desired state of Playbook",
+				Description: "PlaybookSpec defines the desired state of Playbook.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"policy": {
@@ -617,7 +617,7 @@ func schema_pkg_apis_agent_v1alpha1_PlaybookStatus(ref common.ReferenceCallback)
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PlaybookStatus defines the observed state of Playbook",
+				Description: "PlaybookStatus defines the observed state of Playbook.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"phase": {
@@ -660,7 +660,7 @@ func schema_pkg_apis_agent_v1alpha1_PlaybookTemplateSpec(ref common.ReferenceCal
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PlaybookTemplateSpec describes the data a playbook should have when created from a template",
+				Description: "PlaybookTemplateSpec describes the data a playbook should have when created from a template.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"metadata": {
@@ -758,7 +758,7 @@ func schema_pkg_apis_agent_v1alpha1_SysInfoSpec(ref common.ReferenceCallback) co
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "SysInfoSpec defines the system information",
+				Description: "SysInfoSpec defines the system information.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"network": {

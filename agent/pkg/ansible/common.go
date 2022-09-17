@@ -32,7 +32,8 @@ func runCmd(ctx context.Context, args ...string) error {
 }
 
 func isCommandAvailable(ctx context.Context, name string) bool {
-	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", "command -v "+name)
+	innerCommand := "command -v " + name
+	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", innerCommand)
 	if err := cmd.Run(); err != nil {
 		return false
 	}

@@ -20,16 +20,18 @@ import (
 	"context"
 	"encoding/json"
 
-	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/prober"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
+	agentctrl "k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/prober"
 )
 
-func NewAgentProbeHandler(key client.ObjectKey, client client.Client, agentClientCache *agent.ClientCache) prober.ProbeHandler {
+// NewAgentProbeHandler creates a new ProbeHandler for the KubeforceAgent.
+func NewAgentProbeHandler(key client.ObjectKey, client client.Client, agentClientCache *agentctrl.ClientCache) prober.ProbeHandler {
 	return &agentProbeHandler{
 		key:              key,
 		client:           client,
@@ -40,7 +42,7 @@ func NewAgentProbeHandler(key client.ObjectKey, client client.Client, agentClien
 type agentProbeHandler struct {
 	key              client.ObjectKey
 	client           client.Client
-	agentClientCache *agent.ClientCache
+	agentClientCache *agentctrl.ClientCache
 }
 
 func (h *agentProbeHandler) GetKey() string {
@@ -69,9 +71,9 @@ func (h *agentProbeHandler) UpdateStatus(ctx context.Context, result prober.Resu
 	}
 	patchObj := client.MergeFrom(kfAgent.DeepCopy())
 	if result.ProbeResult {
-		conditions.MarkTrue(kfAgent, infrav1.Healthy)
+		conditions.MarkTrue(kfAgent, infrav1.HealthyCondition)
 	} else {
-		conditions.MarkFalse(kfAgent, infrav1.Healthy, infrav1.ProbeFailedReason, clusterv1.ConditionSeverityInfo, result.Message)
+		conditions.MarkFalse(kfAgent, infrav1.HealthyCondition, infrav1.ProbeFailedReason, clusterv1.ConditionSeverityInfo, result.Message)
 	}
 
 	diff, err := patchObj.Data(kfAgent)

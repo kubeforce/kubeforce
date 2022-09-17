@@ -18,17 +18,18 @@ package repository
 
 import (
 	"context"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 
 	. "github.com/onsi/gomega"
-	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
 )
 
 func testHTTPHandler() http.Handler {
@@ -75,7 +76,7 @@ func TestHTTPFileGetter_GetFile(t *testing.T) {
 	fileGetter := storage.GetHTTPFileGetter(*repo)
 	f, err := fileGetter.GetFile(context.Background(), testPath)
 	g.Expect(err).ShouldNot(HaveOccurred())
-	fileContent1, err := ioutil.ReadFile(f.Path)
+	fileContent1, err := os.ReadFile(f.Path)
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(fileContent1).To(Equal([]byte(testContent)))
 }

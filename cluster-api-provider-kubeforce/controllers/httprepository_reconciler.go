@@ -20,14 +20,15 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/repository"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/repository"
 )
 
 // HTTPRepositoryReconciler is responsible for removing cached files from storage when
@@ -51,7 +52,7 @@ func (r *HTTPRepositoryReconciler) SetupWithManager(mgr ctrl.Manager, options co
 
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=httprepositories,verbs=get;list;watch;create;update;patch;delete
 
-// Reconcile reconciles HTTPRepository and removes caches
+// Reconcile reconciles HTTPRepository and removes caches.
 func (r *HTTPRepositoryReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
 	log.V(4).Info("Reconciling")
@@ -80,7 +81,7 @@ func (r *HTTPRepositoryReconciler) Reconcile(ctx context.Context, req reconcile.
 	return reconcile.Result{}, nil
 }
 
-func (r *HTTPRepositoryReconciler) reconcileDelete(ctx context.Context, repo *infrav1.HTTPRepository) (ctrl.Result, error) {
+func (r *HTTPRepositoryReconciler) reconcileDelete(_ context.Context, repo *infrav1.HTTPRepository) (ctrl.Result, error) {
 	if !controllerutil.ContainsFinalizer(repo, infrav1.HTTPRepositoryFinalizer) {
 		return ctrl.Result{}, nil
 	}

@@ -17,8 +17,9 @@ limitations under the License.
 package validation
 
 import (
-	"k3f.io/kubeforce/agent/pkg/config"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	"k3f.io/kubeforce/agent/pkg/config"
 )
 
 func Validate(c *config.Config) field.ErrorList {
@@ -41,10 +42,10 @@ func validateConfigSpec(s *config.ConfigSpec, fieldPath *field.Path) field.Error
 
 func validateTLS(c *config.TLS, fieldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
-	if len(c.CertData) == 0 && len(c.CertFile) == 0 {
+	if len(c.CertData) == 0 && c.CertFile == "" {
 		allErrs = append(allErrs, field.Required(fieldPath, "both 'certData' and 'certFile' fields cannot be empty"))
 	}
-	if len(c.PrivateKeyData) == 0 && len(c.PrivateKeyFile) == 0 {
+	if len(c.PrivateKeyData) == 0 && c.PrivateKeyFile == "" {
 		allErrs = append(allErrs, field.Required(fieldPath, "both 'privateKeyData' and 'privateKeyFile' fields cannot be empty"))
 	}
 	return allErrs
@@ -52,10 +53,10 @@ func validateTLS(c *config.TLS, fieldPath *field.Path) field.ErrorList {
 
 func validateEtcdConfig(c *config.EtcdConfig, fieldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
-	if len(c.DataDir) == 0 {
+	if c.DataDir == "" {
 		allErrs = append(allErrs, field.Required(fieldPath.Child("dataDir"), "must not be empty"))
 	}
-	if len(c.CertsDir) == 0 {
+	if c.CertsDir == "" {
 		allErrs = append(allErrs, field.Required(fieldPath.Child("certsDir"), "must not be empty"))
 	}
 	return allErrs
@@ -69,7 +70,7 @@ func validateAuthentication(a *config.AgentAuthentication, fieldPath *field.Path
 
 func validateX509Authentication(a *config.AgentX509Authentication, fieldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
-	if len(a.ClientCAData) == 0 && len(a.ClientCAFile) == 0 {
+	if len(a.ClientCAData) == 0 && a.ClientCAFile == "" {
 		allErrs = append(allErrs, field.Required(fieldPath, "both 'clientCAData' and 'clientCAFile' fields cannot be empty"))
 	}
 	return allErrs

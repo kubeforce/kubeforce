@@ -21,12 +21,13 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	clientset "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
-	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
-	stringutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/strings"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/cluster-api/util/conditions"
+
+	clientset "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
+	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
+	stringutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/strings"
 )
 
 func NewClientConfigByAddress(keys *Keys, addresses infrav1.Addresses) (*restclient.Config, error) {
@@ -53,14 +54,14 @@ func NewClientConfig(keys *Keys, host string) *restclient.Config {
 		Timeout: 10 * time.Second,
 		Host:    host,
 		TLSClientConfig: restclient.TLSClientConfig{
-			CertData:   keys.authClient.Cert,
-			KeyData:    keys.authClient.Key,
-			CAData:     keys.tls.CA,
+			CertData:   keys.AuthClient.Cert,
+			KeyData:    keys.AuthClient.Key,
+			CAData:     keys.TLS.CA,
 			NextProtos: []string{"h2"},
 		},
 	}
 	if len(config.TLSClientConfig.CAData) == 0 {
-		config.TLSClientConfig.CAData = keys.tls.Cert
+		config.TLSClientConfig.CAData = keys.TLS.Cert
 	}
 	return &config
 }
@@ -72,7 +73,7 @@ func NewClientKubeconfig(keys *Keys, server string) api.Config {
 	clusters := make(map[string]*api.Cluster)
 	clusters[clusterName] = &api.Cluster{
 		Server:                   server,
-		CertificateAuthorityData: keys.tls.CA,
+		CertificateAuthorityData: keys.TLS.CA,
 	}
 
 	contexts := make(map[string]*api.Context)
@@ -83,8 +84,8 @@ func NewClientKubeconfig(keys *Keys, server string) api.Config {
 
 	authinfos := make(map[string]*api.AuthInfo)
 	authinfos[username] = &api.AuthInfo{
-		ClientCertificateData: keys.authClient.Cert,
-		ClientKeyData:         keys.authClient.Key,
+		ClientCertificateData: keys.AuthClient.Cert,
+		ClientKeyData:         keys.AuthClient.Key,
 	}
 
 	apiConfig := api.Config{
@@ -104,6 +105,7 @@ func NewClientSet(keys *Keys, addresses infrav1.Addresses) (*clientset.Clientset
 	return clientset.NewForConfig(config)
 }
 
-func IsReady(a *infrav1.KubeforceAgent) bool {
-	return a.Spec.Installed && conditions.IsTrue(a, infrav1.Healthy)
+// IsHealthy returns true if the agent is ready to connect.
+func IsHealthy(a *infrav1.KubeforceAgent) bool {
+	return a.Spec.Installed && conditions.IsTrue(a, infrav1.HealthyCondition)
 }

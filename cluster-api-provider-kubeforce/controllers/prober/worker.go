@@ -18,7 +18,6 @@ package prober
 
 import (
 	"context"
-	"errors"
 	"math/rand"
 	"sync"
 	"time"
@@ -65,7 +64,6 @@ const (
 
 // Creates and starts a new probe worker.
 func newWorker(m *controller, probe ProbeHandler, probeParams ProbeParams) *worker {
-
 	w := &worker{
 		stopCh:          make(chan struct{}),
 		waitCh:          make(chan struct{}),
@@ -126,20 +124,6 @@ func (w *worker) stop() {
 	w.stopOnce.Do(func() {
 		close(w.stopCh)
 	})
-}
-
-// wait until worker is working
-func (w *worker) wait(timeout time.Duration) error {
-	waitTimeout := time.NewTimer(timeout)
-	select {
-	// block until waitCh is not closed
-	case <-w.waitCh:
-		waitTimeout.Stop()
-		return nil
-	case <-waitTimeout.C:
-		waitTimeout.Stop()
-		return errors.New("timeout")
-	}
 }
 
 func (w *worker) getProbeParams() ProbeParams {

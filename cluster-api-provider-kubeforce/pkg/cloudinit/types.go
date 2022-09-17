@@ -22,9 +22,12 @@ import (
 	"github.com/pkg/errors"
 )
 
+// UserData describes user-data in the cloud-init configuration.
 type UserData struct {
+	// WriteFile is the list of files to be written to the host
 	WriteFiles []WriteFile `json:"write_files,omitempty"`
-	RunCmd     []Cmd       `json:"runcmd,omitempty"`
+	// RunCmd is a list of commands.
+	RunCmd []Cmd `json:"runcmd,omitempty"`
 }
 
 // WriteFile defines the input for generating write_files in cloud-init.
@@ -57,7 +60,7 @@ type Cmd struct {
 	List   []string
 }
 
-// UnmarshalJSON deserialize JSON to the object
+// UnmarshalJSON deserialize JSON to the object.
 func (c *Cmd) UnmarshalJSON(data []byte) error {
 	// First, try to decode the input as a list
 	var s1 []string
@@ -84,7 +87,7 @@ func (c *Cmd) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON serialize the object to JSON format
+// MarshalJSON serialize the object to JSON format.
 func (c *Cmd) MarshalJSON() ([]byte, error) {
 	if c.IsList {
 		return json.Marshal(c.List)

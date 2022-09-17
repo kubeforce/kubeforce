@@ -20,18 +20,17 @@ import (
 	"context"
 	"fmt"
 
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/names"
-
 	"github.com/pkg/errors"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
 	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/secret"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/names"
 )
 
 type Keys struct {
-	authClient *secret.KeyPair
-	tls        *secret.KeyPair
+	AuthClient *secret.KeyPair `json:"auth_client"`
+	TLS        *secret.KeyPair `json:"tls"`
 }
 
 func GetKeys(ctx context.Context, ctrlclient client.Client, kfAgent *infrav1.KubeforceAgent) (*Keys, error) {
@@ -52,31 +51,32 @@ func GetKeys(ctx context.Context, ctrlclient client.Client, kfAgent *infrav1.Kub
 		return nil, err
 	}
 	if tlsclientKeyPair == nil {
-		return nil, errors.New("unable to find agent tls cert")
+		return nil, errors.New("unable to find agent TLS cert")
 	}
 	return &Keys{
-		authClient: clientKeyPair,
-		tls:        tlsclientKeyPair,
+		AuthClient: clientKeyPair,
+		TLS:        tlsclientKeyPair,
 	}, nil
 }
 
-// PurposeKey specifies the purpose of the tls agent key
+// PurposeKey specifies the purpose of the tls agent key.
 type PurposeKey string
 
 const (
-	IssuedKey PurposeKey = "tls"
-	ActiveKey PurposeKey = "tls-active"
+	IssuedKey PurposeKey = "TLS"
+	ActiveKey PurposeKey = "TLS-active"
 )
 
-func GetAgentTLSObjectKey(kfAgent *v1beta1.KubeforceAgent, suffix PurposeKey) client.ObjectKey {
+// GetAgentTLSObjectKey returns the client.ObjectKey for the agent's tls certificate.
+func GetAgentTLSObjectKey(kfAgent *infrav1.KubeforceAgent, suffix PurposeKey) client.ObjectKey {
 	return client.ObjectKey{
-
 		Name:      names.BuildName(kfAgent.Name, "-"+string(suffix)),
 		Namespace: kfAgent.Namespace,
 	}
 }
 
-func GetAgentClientCertObjectKey(kfAgent *v1beta1.KubeforceAgent, key PurposeKey) (*client.ObjectKey, error) {
+// GetAgentClientCertObjectKey eturns the client.ObjectKey for the agent's client certificate.
+func GetAgentClientCertObjectKey(kfAgent *infrav1.KubeforceAgent, key PurposeKey) (*client.ObjectKey, error) {
 	if kfAgent.Spec.Config.Authentication.X509.ClientSecret == "" {
 		return nil, errors.New("clientSecret is not defined")
 	}

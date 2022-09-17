@@ -19,13 +19,14 @@ package util
 import (
 	"context"
 
-	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
 )
 
-// FindOwnerReference returns the OwnerReference object owning the current resource
+// FindOwnerReference returns the OwnerReference object owning the current resource.
 func FindOwnerReference(obj metav1.ObjectMeta, kind, group string) (*metav1.OwnerReference, error) {
 	for _, ref := range obj.OwnerReferences {
 		gv, err := schema.ParseGroupVersion(ref.APIVersion)

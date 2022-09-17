@@ -21,11 +21,12 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"k3f.io/kubeforce/agent/pkg/install"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	"k3f.io/kubeforce/agent/pkg/install"
 )
 
-// uninstallCmd represents the uninstall command
+// uninstallCmd represents the uninstall command.
 var uninstallCmd = &cobra.Command{
 	Use:   "uninstall",
 	Short: "Remove all data files and stop agent service",

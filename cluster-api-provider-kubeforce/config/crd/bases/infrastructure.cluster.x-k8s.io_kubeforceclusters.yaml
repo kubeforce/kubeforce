@@ -20,7 +20,7 @@ spec:
   - name: v1beta1
     schema:
       openAPIV3Schema:
-        description: KubeforceCluster is the Schema for the kubeforceclusters API
+        description: KubeforceCluster is the Schema for the kubeforceclusters API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -35,7 +35,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: KubeforceClusterSpec defines the desired state of KubeforceCluster
+            description: KubeforceClusterSpec defines the desired state of KubeforceCluster.
             properties:
               controlPlaneEndpoint:
                 description: ControlPlaneEndpoint represents the endpoint used to
@@ -54,7 +54,7 @@ spec:
                 type: object
             type: object
           status:
-            description: KubeforceClusterStatus defines the observed state of KubeforceCluster
+            description: KubeforceClusterStatus defines the observed state of KubeforceCluster.
             properties:
               apiServers:
                 description: APIServers describes the kube-apiserver addresses for

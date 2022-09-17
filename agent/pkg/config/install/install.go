@@ -19,13 +19,14 @@ limitations under the License.
 package install
 
 import (
-	"k3f.io/kubeforce/agent/pkg/config"
-	"k3f.io/kubeforce/agent/pkg/config/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+
+	"k3f.io/kubeforce/agent/pkg/config"
+	"k3f.io/kubeforce/agent/pkg/config/v1alpha1"
 )
 
-// Install registers the API group and adds types to a scheme
+// Install registers the API group and adds types to a scheme.
 func Install(scheme *runtime.Scheme) {
 	utilruntime.Must(config.AddToScheme(scheme))
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
