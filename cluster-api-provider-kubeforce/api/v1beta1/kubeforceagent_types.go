@@ -217,7 +217,7 @@ type SystemParams struct {
 // SSHParams describes the parameters for connecting via ssh.
 type SSHParams struct {
 	// Port is the port for ssh connection.
-	// +kubebuilder:default="22"
+	// +kubebuilder:default=22
 	// +optional
 	Port int `json:"port,omitempty"`
 	// Username is a name of user to connect via ssh.

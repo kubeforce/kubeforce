@@ -254,7 +254,7 @@ spec:
                 description: SSH is a params for ssh connection.
                 properties:
                   port:
-                    default: "22"
+                    default: 22
                     description: Port is the port for ssh connection.
                     type: integer
                   secretName:

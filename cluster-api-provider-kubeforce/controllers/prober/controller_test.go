@@ -28,8 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	errutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/errors"
 )
 
 func init() {
@@ -140,7 +138,9 @@ func TestUpdate(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 
-	go errutil.IgnoreError(c.Start(ctx))
+	go func() {
+		_ = c.Start(ctx)
+	}()
 
 	probeHandler := newFakeProbeHandler("success-test", nil)
 	if updStatus := probeHandler.getUpdateStatus(); updStatus != nil {

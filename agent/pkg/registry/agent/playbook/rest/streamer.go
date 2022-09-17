@@ -49,7 +49,7 @@ func (s *FileStreamer) DeepCopyObject() runtime.Object {
 
 // InputStream returns a stream with the contents of the file. If no location is provided,
 // a null stream is returned.
-func (s *FileStreamer) InputStream(ctx context.Context, apiVersion, acceptHeader string) (stream io.ReadCloser, flush bool, contentType string, err error) {
+func (s *FileStreamer) InputStream(context.Context, string, string) (stream io.ReadCloser, flush bool, contentType string, err error) {
 	if s.Path == "" {
 		// If no location was provided, return a null stream
 		return nil, false, s.ContentType, nil

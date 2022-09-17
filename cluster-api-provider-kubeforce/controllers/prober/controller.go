@@ -161,11 +161,15 @@ func (m *controller) GetCurrentStatus(key string) *ResultItem {
 }
 
 func (m *controller) updateStatus(ctx context.Context) {
-	update := <-m.resultManager.Updates()
-	m.workerLock.RLock()
-	defer m.workerLock.RUnlock()
-	if worker, ok := m.workers[update.Key]; ok {
-		worker.probe.UpdateStatus(ctx, update.Result)
+	select {
+	case update := <-m.resultManager.Updates():
+		m.workerLock.RLock()
+		defer m.workerLock.RUnlock()
+		if worker, ok := m.workers[update.Key]; ok {
+			worker.probe.UpdateStatus(ctx, update.Result)
+		}
+	case <-ctx.Done():
+		return
 	}
 }
 
