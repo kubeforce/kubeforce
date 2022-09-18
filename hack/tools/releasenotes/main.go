@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+
 	"k3f.io/kubeforce/hack/tools/releasenotes/pkg"
 )
 

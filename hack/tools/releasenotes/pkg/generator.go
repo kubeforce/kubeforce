@@ -40,16 +40,19 @@ var (
 	releaseNotesTemplate = template.Must(template.New("release_notes").Parse(releaseNotesTplFile))
 )
 
+// Generator generates a release notes.
 type Generator struct {
 	cfg Config
 }
 
+// NewGenerator creates a new Generator.
 func NewGenerator(cfg Config) *Generator {
 	return &Generator{
 		cfg: cfg,
 	}
 }
 
+// Run starts the creation of release notes.
 func (g *Generator) Run() error {
 	releaseNotes, err := g.getReleaseNotes()
 	if err != nil {
@@ -59,7 +62,7 @@ func (g *Generator) Run() error {
 	if err := releaseNotesTemplate.Execute(buf, releaseNotes); err != nil {
 		return errors.WithStack(err)
 	}
-	if err := os.WriteFile(g.cfg.Output, buf.Bytes(), 0o644); err != nil {
+	if err := os.WriteFile(g.cfg.Output, buf.Bytes(), 0o600); err != nil {
 		return errors.Wrap(err, "unable to write the output file")
 	}
 	return nil
@@ -131,7 +134,7 @@ func trimTitle(title string) string {
 }
 
 func getRefs(title string) []string {
-	var result []string
+	result := make([]string, 0)
 	match := refRegex.FindAllStringSubmatch(title, -1)
 	for _, gr := range match {
 		result = append(result, gr[1])

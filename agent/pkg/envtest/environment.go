@@ -18,7 +18,6 @@ package envtest
 
 import (
 	"context"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -48,7 +47,7 @@ type Environment struct {
 }
 
 func (e *Environment) generateConfig() error {
-	tmpDir, err := ioutil.TempDir("", "kubeforce-agent-")
+	tmpDir, err := os.MkdirTemp("", "kubeforce-agent-")
 	if err != nil {
 		return err
 	}

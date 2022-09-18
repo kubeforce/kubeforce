@@ -35,7 +35,7 @@ type Playbook struct {
 	Status PlaybookStatus `json:"status,omitempty"`
 }
 
-// PlaybookList
+// PlaybookList defines multiple playbooks.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type PlaybookList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -80,7 +80,7 @@ type PlaybookStatus struct {
 	Failed int32 `json:"failed,omitempty"`
 }
 
-// Policy defines the playbook execution policy
+// Policy defines the playbook execution policy.
 type Policy struct {
 	// Specifies the duration in seconds relative to the startTime that the job may be active
 	// before the system tries to terminate it.

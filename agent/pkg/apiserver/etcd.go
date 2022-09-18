@@ -26,7 +26,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"net"
 	"os"
@@ -99,7 +98,7 @@ func keyFilePath(dir, baseName string) string {
 }
 
 func generateCerts(certsDir string) error {
-	err := os.MkdirAll(certsDir, 0755)
+	err := os.MkdirAll(certsDir, 0o700)
 	if err != nil {
 		return err
 	}
@@ -114,12 +113,12 @@ func generateCerts(certsDir string) error {
 	ipAddresses := []net.IP{
 		net.IPv4(127, 0, 0, 1),
 	}
-	_, err = generateCert(certsDir, etcdCertBaseName, "Etcd Server",
+	err = generateCert(certsDir, etcdCertBaseName, "Etcd Server",
 		ipAddresses, nil, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}, caCert, caKey)
 	if err != nil {
-		return errors.Wrap(err, "unable to generate server cert for etcd")
+		return errors.Wrap(err, "unable to generate tls cert for etcd")
 	}
-	_, err = generateCert(certsDir, etcdClientBaseName, "Etcd Client",
+	err = generateCert(certsDir, etcdClientBaseName, "Etcd Client",
 		ipAddresses, nil, []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}, caCert, caKey)
 	if err != nil {
 		return errors.Wrap(err, "unable to generate client cert for etcd")
@@ -127,12 +126,14 @@ func generateCerts(certsDir string) error {
 	return nil
 }
 
+// EtcdServer is the component responsible for starting and stopping the etcd server.
 type EtcdServer struct {
 	cfg     *embed.Config
 	started chan struct{}
 	Etcd    *embed.Etcd
 }
 
+// Start starts running the etcd server.
 func (s *EtcdServer) Start(ctx context.Context) error {
 	e, err := embed.StartEtcd(s.cfg)
 	if err != nil {
@@ -192,20 +193,20 @@ func generateCACert(dir, baseName, commonName string, org []string, key crypto.S
 	}
 	certPath := certFilePath(dir, baseName)
 	keyPath := keyFilePath(dir, baseName)
-	if err := os.WriteFile(certPath, certBuffer.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(filepath.Clean(certPath), certBuffer.Bytes(), 0o600); err != nil {
 		return nil, fmt.Errorf("failed to write cert to %s: %v", certPath, err)
 	}
-	if err := os.WriteFile(keyPath, keyBytes, 0644); err != nil {
+	if err := os.WriteFile(filepath.Clean(keyPath), keyBytes, 0o600); err != nil {
 		return nil, fmt.Errorf("failed to write key to %s: %v", keyPath, err)
 	}
 	return cert, err
 }
 
 func generateCert(dir, baseName, commonName string, ipAddresses []net.IP,
-	dnsNames []string, keyUsages []x509.ExtKeyUsage, caCert *x509.Certificate, caKey crypto.Signer) (*x509.Certificate, error) {
+	dnsNames []string, keyUsages []x509.ExtKeyUsage, caCert *x509.Certificate, caKey crypto.Signer) error {
 	key, err := rsa.GenerateKey(cryptorand.Reader, 2048)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to generate rsa key")
+		return errors.Wrap(err, "unable to generate rsa key")
 	}
 	validFrom := time.Now().Add(-time.Hour) // valid an hour earlier to avoid flakes due to clock skew
 	maxAge := time.Hour * 24 * 365          // one year for certs
@@ -226,28 +227,25 @@ func generateCert(dir, baseName, commonName string, ipAddresses []net.IP,
 
 	certDERBytes, err := x509.CreateCertificate(cryptorand.Reader, &template, caCert, key.Public(), caKey)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	cert, err := x509.ParseCertificate(certDERBytes)
-	if err != nil {
-		return nil, err
-	}
+
 	certPath := certFilePath(dir, baseName)
 	keyPath := keyFilePath(dir, baseName)
 	certBuffer := bytes.Buffer{}
 	if err := pem.Encode(&certBuffer, &pem.Block{Type: certutil.CertificateBlockType, Bytes: certDERBytes}); err != nil {
-		return nil, err
+		return err
 	}
 
 	keyBytes, err := keyutil.MarshalPrivateKeyToPEM(key)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if err := ioutil.WriteFile(certPath, certBuffer.Bytes(), 0644); err != nil {
-		return nil, fmt.Errorf("failed to write cert fixture to %s: %v", certPath, err)
+	if err := os.WriteFile(certPath, certBuffer.Bytes(), 0600); err != nil {
+		return fmt.Errorf("failed to write cert fixture to %s: %v", certPath, err)
 	}
-	if err := ioutil.WriteFile(keyPath, keyBytes, 0644); err != nil {
-		return nil, fmt.Errorf("failed to write key fixture to %s: %v", keyPath, err)
+	if err := os.WriteFile(keyPath, keyBytes, 0600); err != nil {
+		return fmt.Errorf("failed to write key fixture to %s: %v", keyPath, err)
 	}
-	return cert, nil
+	return nil
 }

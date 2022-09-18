@@ -40,13 +40,10 @@ var (
 	restcfg      *rest.Config
 	k8sClient    client.Client
 	k8sClientset *clientset.Clientset
-	ctx          context.Context
-	cancel       context.CancelFunc
 )
 
 func TestMain(m *testing.M) {
-	ctx, cancel = context.WithCancel(context.TODO())
-	defer cancel()
+	ctx := context.Background()
 	if err := setup(ctx); err != nil {
 		fmt.Println(errors.Cause(err))
 		os.Exit(1)

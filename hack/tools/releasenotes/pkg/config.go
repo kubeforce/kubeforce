@@ -16,22 +16,26 @@ limitations under the License.
 
 package pkg
 
+// Config describes the configuration for generating a release notes.
 type Config struct {
 	Output   string
 	GitRange GitRange
 	Headers  []Header
 }
 
+// GitRange describes the range of git commits for generating release notes.
 type GitRange struct {
 	From string
 	To   string
 }
 
+// Header describes the title of the groups to be sorted.
 type Header struct {
 	Name     string
 	Prefixes []string
 }
 
+// DefaultConfig creates a new Config with default values.
 func DefaultConfig() *Config {
 	return &Config{
 		GitRange: GitRange{

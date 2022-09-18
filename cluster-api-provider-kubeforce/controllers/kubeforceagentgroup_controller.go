@@ -50,6 +50,7 @@ type KubeforceAgentGroupReconciler struct {
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=kubeforceagentgroups,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=kubeforceagentgroups/status;kubeforceagentgroups/finalizers,verbs=get;update;patch
 
+// Reconcile reconciles KubeforceAgentGroup.
 func (r *KubeforceAgentGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, rerr error) {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -81,7 +82,8 @@ func (r *KubeforceAgentGroupReconciler) Reconcile(ctx context.Context, req ctrl.
 	}()
 
 	if !agentGroup.ObjectMeta.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, agentGroup)
+		r.reconcileDelete(ctx, agentGroup)
+		return ctrl.Result{}, nil
 	}
 
 	// Add finalizer first if not exist to avoid the race condition between init and delete
@@ -109,17 +111,14 @@ func (r *KubeforceAgentGroupReconciler) SetupWithManager(logger logr.Logger, mgr
 		Complete(r)
 }
 
-func (r *KubeforceAgentGroupReconciler) reconcileDelete(_ context.Context, agentGroup *infrav1.KubeforceAgentGroup) (ctrl.Result, error) {
-	controllerutil.RemoveFinalizer(agentGroup, infrav1.AgentGroupFinalizer)
-	return ctrl.Result{}, nil
+func (r *KubeforceAgentGroupReconciler) reconcileDelete(_ context.Context, agentGroup *infrav1.KubeforceAgentGroup) {
+	if controllerutil.ContainsFinalizer(agentGroup, infrav1.AgentGroupFinalizer) {
+		controllerutil.RemoveFinalizer(agentGroup, infrav1.AgentGroupFinalizer)
+	}
 }
 
 func (r *KubeforceAgentGroupReconciler) reconcileNormal(ctx context.Context, agentGroup *infrav1.KubeforceAgentGroup) (ctrl.Result, error) {
-	desiredAgents, err := r.desiredAgents(agentGroup)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "unable to get desired agents")
-	}
-
+	desiredAgents := r.desiredAgents(agentGroup)
 	agents, err := agentsInGroup(ctx, r.Client, agentGroup)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "unable to get agents by the group")
@@ -206,6 +205,7 @@ func agentsInGroup(ctx context.Context, ctrlclient client.Client, agentGroup *in
 	}
 	agents := make([]*infrav1.KubeforceAgent, 0)
 	for _, kfAgent := range list.Items {
+		//nolint:gosec
 		if metav1.IsControlledBy(&kfAgent, agentGroup) {
 			agents = append(agents, kfAgent.DeepCopy())
 		}
@@ -231,7 +231,7 @@ func agentsBySelector(ctx context.Context, ctrlclient client.Client, namespace s
 	return agents, nil
 }
 
-func (r *KubeforceAgentGroupReconciler) desiredAgents(agentGroup *infrav1.KubeforceAgentGroup) ([]*infrav1.KubeforceAgent, error) {
+func (r *KubeforceAgentGroupReconciler) desiredAgents(agentGroup *infrav1.KubeforceAgentGroup) []*infrav1.KubeforceAgent {
 	agents := make([]*infrav1.KubeforceAgent, 0, len(agentGroup.Spec.Addresses))
 	agentLabels := buildKubeforceAgentLabels(agentGroup.Spec.Template.ObjectMeta.Labels, agentGroup.Name)
 	for key, address := range agentGroup.Spec.Addresses {
@@ -253,7 +253,7 @@ func (r *KubeforceAgentGroupReconciler) desiredAgents(agentGroup *infrav1.Kubefo
 		}
 		agents = append(agents, m)
 	}
-	return agents, nil
+	return agents
 }
 
 func (r *KubeforceAgentGroupReconciler) updateAgent(ctx context.Context, agent *infrav1.KubeforceAgent, desiredAgent *infrav1.KubeforceAgent) error {

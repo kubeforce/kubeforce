@@ -36,6 +36,7 @@ func NewHTTPFileGetter(s *Storage, r infrav1.HTTPRepository) FileGetter {
 	}
 }
 
+// HTTPFileGetter implements FileGetter for HTTPRepository.
 type HTTPFileGetter struct {
 	repository infrav1.HTTPRepository
 	storage    *Storage
@@ -51,6 +52,7 @@ func convertURLToFilesystemPath(url string) string {
 	return result
 }
 
+// GetFile returns file by relativePath.
 func (g *HTTPFileGetter) GetFile(ctx context.Context, relativePath string) (*File, error) {
 	parsedURL, err := url.Parse(g.repository.Spec.URL)
 	if err != nil {
@@ -69,6 +71,7 @@ func (g *HTTPFileGetter) GetFile(ctx context.Context, relativePath string) (*Fil
 	}, nil
 }
 
+// RemoveCache removes all files from the cache that match this HTTPFileGetter.
 func (g *HTTPFileGetter) RemoveCache() error {
 	relativeFSPath := path.Join(g.repository.Namespace, g.repository.Name)
 	return g.storage.remove(relativeFSPath)

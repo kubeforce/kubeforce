@@ -42,7 +42,7 @@ type SysInfoSpec struct {
 	Network Network `json:"network,omitempty"`
 }
 
-// Network defines the network information
+// Network defines the network information.
 type Network struct {
 	// Hostname is the current hostname
 	Hostname string `json:"hostname"`
@@ -53,6 +53,7 @@ type Network struct {
 	Interfaces []Interface `json:"interfaces,omitempty"`
 }
 
+// Interface describes summary information about a network interface.
 type Interface struct {
 	Name    string          `json:"name"`
 	Address string          `json:"address"`

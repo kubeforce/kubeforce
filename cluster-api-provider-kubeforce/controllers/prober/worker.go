@@ -91,7 +91,9 @@ func (w *worker) run(ctx context.Context) {
 
 	// If controller restarted the probes could be started in rapid succession.
 	// Let the worker wait for a random portion of tickerPeriod before probing.
-	time.Sleep(time.Duration(rand.Float64() * float64(time.Duration(w.getProbeParams().PeriodSeconds)*time.Second)))
+	//nolint:gosec
+	rndFloat := rand.Float64()
+	time.Sleep(time.Duration(rndFloat * float64(time.Duration(w.getProbeParams().PeriodSeconds)*time.Second)))
 
 	defer func() {
 		w.probeController.log.Info("the probe worker has been stopped", "key", w.probe.GetKey())

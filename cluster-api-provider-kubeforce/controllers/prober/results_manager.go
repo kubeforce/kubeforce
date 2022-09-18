@@ -109,22 +109,22 @@ func (m *resultManager) Get(key string) (ResultItem, bool) {
 }
 
 // Set sets the cached ProbeResult for the container with the given ID.
-func (m *resultManager) Set(key string, probeResult ResultItem) {
-	if m.setInternal(key, probeResult) {
-		m.updates <- Update{key, probeResult}
+func (m *resultManager) Set(key string, res ResultItem) {
+	if m.setInternal(key, res) {
+		m.updates <- Update{key, res}
 	}
 }
 
 // Internal helper for locked portion of set. Returns whether an update should be sent.
-func (m *resultManager) setInternal(key string, ProbeResult ResultItem) bool {
+func (m *resultManager) setInternal(key string, res ResultItem) bool {
 	m.Lock()
 	defer m.Unlock()
 	updated := false
 	prev, exists := m.cache[key]
-	if !exists || prev.ProbeResult != ProbeResult.ProbeResult {
+	if !exists || prev.ProbeResult != res.ProbeResult {
 		updated = true
 	}
-	m.cache[key] = ProbeResult
+	m.cache[key] = res
 	return updated
 }
 

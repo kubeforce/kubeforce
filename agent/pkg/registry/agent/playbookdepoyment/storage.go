@@ -30,7 +30,7 @@ import (
 )
 
 var (
-	// GroupResource is group used to register these objects
+	// GroupResource is group used to register these objects.
 	GroupResource = agent.Resource("playbookdeployments")
 )
 
@@ -97,7 +97,7 @@ func (r *StatusREST) Update(ctx context.Context, name string, objInfo rest.Updat
 	return r.store.Update(ctx, name, objInfo, createValidation, updateValidation, false, options)
 }
 
-// GetResetFields implements rest.ResetFieldsStrategy
+// GetResetFields implements rest.ResetFieldsStrategy.
 func (r *StatusREST) GetResetFields() map[fieldpath.APIVersion]*fieldpath.Set {
 	return r.store.GetResetFields()
 }

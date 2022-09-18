@@ -25,7 +25,7 @@ type FileTask struct {
 // FileState describes the state for file module.
 type FileState string
 
-// Values that can be set for FileState
+// Values that can be set for FileState.
 const (
 	FileStateAbsent    FileState = "absent"
 	FileStateDirectory FileState = "directory"

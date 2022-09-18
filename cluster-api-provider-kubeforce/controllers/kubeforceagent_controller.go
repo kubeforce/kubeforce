@@ -24,7 +24,6 @@ import (
 
 	certutil "github.com/cert-manager/cert-manager/pkg/api/util"
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -67,6 +66,7 @@ type KubeforceAgentReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets;events;configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=secrets;,verbs=get;list;watch
 
+// Reconcile reconciles KubeforceAgent object.
 func (r *KubeforceAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, rerr error) {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -449,7 +449,7 @@ func (r *KubeforceAgentReconciler) reconcileAgentInstallation(ctx context.Contex
 		conditions.MarkFalse(kfAgent, infrav1.AgentInstalledCondition, infrav1.AgentInstallingFailedReason, clusterv1.ConditionSeverityInfo, err.Error())
 		return ctrl.Result{}, err
 	}
-	_, err = agentHelper.GetSshConfig(ctx)
+	_, err = agentHelper.GetSSHConfig(ctx)
 	if err != nil {
 		conditions.MarkFalse(kfAgent, infrav1.AgentInstalledCondition, infrav1.WaitingForSSHConfigurationReason, clusterv1.ConditionSeverityInfo, err.Error())
 		return ctrl.Result{
@@ -512,7 +512,7 @@ func (r *KubeforceAgentReconciler) reconcileTLSCert(ctx context.Context, kfAgent
 		conditions.MarkFalse(kfAgent, infrav1.AgentTLSCondition, infrav1.WaitingForCertIssueReason, clusterv1.ConditionSeverityError, err.Error())
 		return ctrl.Result{}, err
 	}
-	cond := certutil.GetCertificateCondition(cert, cmapi.CertificateConditionReady)
+	cond := certutil.GetCertificateCondition(cert, certv1.CertificateConditionReady)
 	if cond == nil || cond.Status != cmmeta.ConditionTrue || cond.ObservedGeneration != cert.Generation {
 		conditions.MarkFalse(kfAgent, infrav1.AgentTLSCondition, infrav1.WaitingForCertIssueReason, clusterv1.ConditionSeverityInfo, "")
 		return ctrl.Result{}, nil

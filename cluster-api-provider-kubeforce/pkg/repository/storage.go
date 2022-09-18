@@ -97,7 +97,7 @@ func (s *Storage) getFile(ctx context.Context, relativePath string, download dow
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0o750); err != nil {
 		return "", err
 	}
-	f, err := os.OpenFile(fullTmpPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o660)
+	f, err := os.OpenFile(filepath.Clean(fullTmpPath), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return "", err
 	}

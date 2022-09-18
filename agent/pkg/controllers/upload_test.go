@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -29,13 +30,14 @@ This is a test text file.
 `
 
 func TestSuccessfulUpload(t *testing.T) {
+	ctx := context.Background()
 	g := NewGomegaWithT(t)
 	t.Run("upload the text file", func(t *testing.T) {
 		tempDir := t.TempDir()
 		targetPath := filepath.Join(tempDir, "test.txt")
 		err := k8sClientset.UploadData(ctx, targetPath, []byte(fileContent), nil)
 		g.Expect(err).Should(Succeed())
-		data, err := os.ReadFile(targetPath)
+		data, err := os.ReadFile(filepath.Clean(targetPath))
 		g.Expect(err).Should(Succeed())
 		g.Expect(string(data)).Should(Equal(fileContent))
 	})

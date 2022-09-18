@@ -25,5 +25,5 @@ ROOT_DIR="$( cd "${CURRENT_DIR}/../../" && pwd )"
 
 docker run --rm \
 -v "${ROOT_DIR}:/go/src/${ROOT_MODULE_NAME}" \
-golang:1.18 \
+golang:1.19 \
 /go/src/${ROOT_MODULE_NAME}/agent/hack/update-codegen.sh

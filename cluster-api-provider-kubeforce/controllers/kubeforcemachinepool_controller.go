@@ -55,6 +55,7 @@ type KubeforceMachinePoolReconciler struct {
 // +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=machinepools;machinepools/status,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets;,verbs=get;list;watch
 
+// Reconcile reconciles KubeforceMachinePool.
 func (r *KubeforceMachinePoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, rerr error) {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -97,7 +98,8 @@ func (r *KubeforceMachinePoolReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// Handle deleted machines
 	if !kubeforceMachinePool.ObjectMeta.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, machinePool, kubeforceMachinePool)
+		r.reconcileDelete(ctx, machinePool, kubeforceMachinePool)
+		return ctrl.Result{}, nil
 	}
 
 	// Add finalizer first if not exist to avoid the race condition between init and delete
@@ -158,9 +160,10 @@ func (r *KubeforceMachinePoolReconciler) SetupWithManager(logger logr.Logger, mg
 	)
 }
 
-func (r *KubeforceMachinePoolReconciler) reconcileDelete(_ context.Context, _ *expv1.MachinePool, kubeforceMachinePool *infrav1.KubeforceMachinePool) (ctrl.Result, error) {
-	controllerutil.RemoveFinalizer(kubeforceMachinePool, infrav1.MachinePoolFinalizer)
-	return ctrl.Result{}, nil
+func (r *KubeforceMachinePoolReconciler) reconcileDelete(_ context.Context, _ *expv1.MachinePool, kubeforceMachinePool *infrav1.KubeforceMachinePool) {
+	if controllerutil.ContainsFinalizer(kubeforceMachinePool, infrav1.MachinePoolFinalizer) {
+		controllerutil.RemoveFinalizer(kubeforceMachinePool, infrav1.MachinePoolFinalizer)
+	}
 }
 
 func (r *KubeforceMachinePoolReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster, machinePool *expv1.MachinePool, kubeforceMachinePool *infrav1.KubeforceMachinePool) (ctrl.Result, error) {
@@ -255,6 +258,7 @@ func (r *KubeforceMachinePoolReconciler) machinesByMachinePool(ctx context.Conte
 	}
 	machines := make([]*infrav1.KubeforceMachine, 0)
 	for _, machine := range list.Items {
+		//nolint:gosec
 		if metav1.IsControlledBy(&machine, kubeforceMachinePool) {
 			machines = append(machines, machine.DeepCopy())
 		}

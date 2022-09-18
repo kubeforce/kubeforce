@@ -31,6 +31,8 @@ type Config struct {
 }
 
 // ConfigSpec defines agent configuration.
+//
+//nolint:revive
 type ConfigSpec struct {
 	// Port is the port for the Agent to serve on.
 	Port int
@@ -70,12 +72,14 @@ type TLS struct {
 	TLSMinVersion string
 }
 
+// AgentAuthentication is configuration for agent authentication.
 type AgentAuthentication struct {
 	// X509 contains settings related to x509 client certificate authentication
 	// +optional
 	X509 AgentX509Authentication
 }
 
+// AgentX509Authentication describes configuration of x509 client certificate authentication.
 type AgentX509Authentication struct {
 	// ClientCAFile is the path to a PEM-encoded certificate bundle. If set, any request presenting a client certificate
 	// signed by one of the authorities in the bundle is authenticated with a username corresponding to the CommonName,

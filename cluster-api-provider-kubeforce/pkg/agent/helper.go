@@ -23,6 +23,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -73,6 +74,7 @@ func NewHelper(client client.Client, storage *repository.Storage, kfAgent *infra
 	}, nil
 }
 
+// Helper helps to install agent on host.
 type Helper struct {
 	client  client.Client
 	storage *repository.Storage
@@ -117,11 +119,11 @@ func (h *Helper) copyAgent(ctx context.Context, sshClient *ssh.Client) error {
 		return err
 	}
 	defer scpClient.Close()
-	filepath, err := h.getAgentFilepath(ctx)
+	agentPath, err := h.getAgentFilepath(ctx)
 	if err != nil {
 		return err
 	}
-	agentFile, err := os.Open(filepath)
+	agentFile, err := os.Open(filepath.Clean(agentPath))
 	if err != nil {
 		return err
 	}
@@ -176,7 +178,7 @@ func (h *Helper) copyAgentClientConfig(ctx context.Context, sshClient *ssh.Clien
 
 // Install installs agent to the host.
 func (h *Helper) Install(ctx context.Context) error {
-	sshClient, err := h.getSshClient(ctx)
+	sshClient, err := h.getSSHClient(ctx)
 	if err != nil {
 		return errors.Wrap(err, "unable to get ssh client")
 	}
@@ -202,7 +204,7 @@ func (h *Helper) Install(ctx context.Context) error {
 	return nil
 }
 
-func (h *Helper) getSshClient(ctx context.Context) (*ssh.Client, error) {
+func (h *Helper) getSSHClient(ctx context.Context) (*ssh.Client, error) {
 	host := stringutil.Find(stringutil.IsNotEmpty, h.agent.Spec.Addresses.ExternalDNS, h.agent.Spec.Addresses.ExternalIP)
 	if host == "" {
 		return nil, errors.Errorf("unable to find host address for agent %s", h.agent.Name)
@@ -218,7 +220,7 @@ func (h *Helper) getSshClient(ctx context.Context) (*ssh.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	sshConfig, err := h.GetSshConfig(ctx)
+	sshConfig, err := h.GetSSHConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +231,8 @@ func (h *Helper) getSshClient(ctx context.Context) (*ssh.Client, error) {
 	return ssh.NewClient(sshCon, chans, reqs), nil
 }
 
-func (h *Helper) GetSshAuthMethod(ctx context.Context) (ssh.AuthMethod, error) {
+// GetSSHAuthMethod returns ssh authentication method for the KubeforceAgent.
+func (h *Helper) GetSSHAuthMethod(ctx context.Context) (ssh.AuthMethod, error) {
 	key := types.NamespacedName{
 		Namespace: h.agent.Namespace,
 		Name:      h.agent.Spec.SSH.SecretName,
@@ -262,8 +265,9 @@ func (h *Helper) GetSshAuthMethod(ctx context.Context) (ssh.AuthMethod, error) {
 	return ssh.PublicKeys(signer), nil
 }
 
-func (h *Helper) GetSshConfig(ctx context.Context) (*ssh.ClientConfig, error) {
-	authMethod, err := h.GetSshAuthMethod(ctx)
+// GetSSHConfig returns ClientConfig to configure a Client.
+func (h *Helper) GetSSHConfig(ctx context.Context) (*ssh.ClientConfig, error) {
+	authMethod, err := h.GetSSHAuthMethod(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +280,8 @@ func (h *Helper) GetSshConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 		Auth: []ssh.AuthMethod{
 			authMethod,
 		},
-		Timeout:         15 * time.Second,
+		Timeout: 15 * time.Second,
+		//nolint:gosec
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 	return conf, nil

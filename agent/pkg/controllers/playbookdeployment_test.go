@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -30,6 +31,7 @@ import (
 )
 
 func TestSuccessfulPlaybookDeployment(t *testing.T) {
+	ctx := context.Background()
 	g := NewGomegaWithT(t)
 	plName := "test-playbook"
 	t.Run("run the successful playbookDeployment", func(t *testing.T) {

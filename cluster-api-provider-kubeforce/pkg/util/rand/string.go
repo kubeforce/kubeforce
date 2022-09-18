@@ -31,6 +31,7 @@ const (
 
 // StringWithCharset returns the generated string.
 func StringWithCharset(length int, charset string) string {
+	//nolint:gosec
 	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 	b := make([]byte, length)
 	for i := range b {

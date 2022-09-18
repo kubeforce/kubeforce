@@ -34,12 +34,12 @@ import (
 	"k3f.io/kubeforce/agent/pkg/apis/agent/validation"
 )
 
-// NewStrategy creates and returns a playbookDeploymentStrategy instance
+// NewStrategy creates and returns a playbookDeploymentStrategy instance.
 func NewStrategy(typer runtime.ObjectTyper) playbookDeploymentStrategy {
 	return playbookDeploymentStrategy{typer, names.SimpleNameGenerator}
 }
 
-// GetAttrs returns labels.Set, fields.Set, and error in case the given runtime.Object is not a Fischer
+// GetAttrs returns labels.Set, fields.Set, and error in case the given runtime.Object is not a Fischer.
 func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
 	apiserver, ok := obj.(*agent.PlaybookDeployment)
 	if !ok {
@@ -102,7 +102,7 @@ func (playbookDeploymentStrategy) PrepareForUpdate(ctx context.Context, obj, old
 	newObj.Status = oldObj.Status
 }
 
-// Validate validates a new playbook
+// Validate validates a new playbook.
 func (playbookDeploymentStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
 	pd := obj.(*agent.PlaybookDeployment)
 	return validation.ValidatePlaybookDeploymentCreate(pd)
@@ -113,7 +113,7 @@ func (playbookDeploymentStrategy) AllowCreateOnUpdate() bool {
 	return false
 }
 
-// AllowUnconditionalUpdate allows playbooks to be overwritten
+// AllowUnconditionalUpdate allows playbooks to be overwritten.
 func (playbookDeploymentStrategy) AllowUnconditionalUpdate() bool {
 	return false
 }
@@ -149,7 +149,7 @@ type playbookStatusStrategy struct {
 	playbookDeploymentStrategy
 }
 
-// NewStatusStrategy creates and returns a playbookStatusStrategy instance
+// NewStatusStrategy creates and returns a playbookStatusStrategy instance.
 func NewStatusStrategy(typer runtime.ObjectTyper) playbookStatusStrategy {
 	return playbookStatusStrategy{NewStrategy(typer)}
 }

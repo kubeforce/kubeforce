@@ -65,13 +65,14 @@ func copyBinary() error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(agentPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(agentPath), 0750); err != nil {
 		return err
 	}
-	if err := copyFile(agentPath, exPath, 0755); err != nil {
+	if err := copyFile(agentPath, exPath, 0750); err != nil {
 		return err
 	}
-	if err := os.Chmod(agentPath, 0755); err != nil {
+	//nolint:gosec
+	if err := os.Chmod(agentPath, 0750); err != nil {
 		return err
 	}
 	if err := os.Chown(agentPath, 0, 0); err != nil {
@@ -82,17 +83,17 @@ func copyBinary() error {
 
 func copyTLSCerts(cfg config.ConfigSpec) error {
 	if len(cfg.TLS.CertData) != 0 || len(cfg.TLS.PrivateKeyData) != 0 {
-		if _, err := saveFile(certFile, cfg.TLS.CertData, 0o600, 0o777); err != nil {
+		if err := saveFile(certFile, cfg.TLS.CertData, 0o600, 0o750); err != nil {
 			return err
 		}
-		if _, err := saveFile(privateKeyFile, cfg.TLS.PrivateKeyData, 0o600, 0o777); err != nil {
+		if err := saveFile(privateKeyFile, cfg.TLS.PrivateKeyData, 0o600, 0o750); err != nil {
 			return err
 		}
 	} else if cfg.TLS.CertFile != "" || cfg.TLS.PrivateKeyFile != "" {
-		if err := copyFile(certFile, cfg.TLS.CertFile, 0600); err != nil {
+		if err := copyFile(certFile, cfg.TLS.CertFile, 0o600); err != nil {
 			return err
 		}
-		if err := copyFile(privateKeyFile, cfg.TLS.PrivateKeyFile, 0600); err != nil {
+		if err := copyFile(privateKeyFile, cfg.TLS.PrivateKeyFile, 0o600); err != nil {
 			return err
 		}
 	} else {
@@ -103,7 +104,7 @@ func copyTLSCerts(cfg config.ConfigSpec) error {
 
 func copyClientCACert(cfg config.ConfigSpec) error {
 	if len(cfg.Authentication.X509.ClientCAData) > 0 {
-		if _, err := saveFile(clientCAFile, cfg.Authentication.X509.ClientCAData, 0o600, 0o777); err != nil {
+		if err := saveFile(clientCAFile, cfg.Authentication.X509.ClientCAData, 0o600, 0o777); err != nil {
 			return err
 		}
 	} else if len(cfg.Authentication.X509.ClientCAFile) > 0 {
@@ -133,7 +134,7 @@ func saveConfig(cfg config.Config) error {
 		return err
 	}
 
-	if _, err := saveFile(configPath, data, 0o600, 0o777); err != nil {
+	if err := saveFile(configPath, data, 0o600, 0o777); err != nil {
 		return err
 	}
 	if err := os.Chmod(configPath, 0o600); err != nil {
@@ -176,6 +177,7 @@ func stopService(ctx context.Context) error {
 }
 
 func createService(ctx context.Context) error {
+	//nolint:gosec
 	if err := os.WriteFile(servicePath, []byte(agentServiceContent), 0644); err != nil {
 		return err
 	}
@@ -202,17 +204,17 @@ func createService(ctx context.Context) error {
 	return nil
 }
 
-func saveFile(dst string, data []byte, dstMode os.FileMode, dirMode os.FileMode) (int, error) {
+func saveFile(dst string, data []byte, dstMode os.FileMode, dirMode os.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(dst), dirMode); err != nil {
-		return 0, err
+		return err
 	}
-	destination, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, dstMode)
+	destination, err := os.OpenFile(filepath.Clean(dst), os.O_RDWR|os.O_CREATE|os.O_TRUNC, dstMode)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer destination.Close()
-	nBytes, err := destination.Write(data)
-	return nBytes, err
+	_, err = destination.Write(data)
+	return err
 }
 
 func copyFile(dst, src string, dstMode os.FileMode) error {
@@ -225,13 +227,12 @@ func copyFile(dst, src string, dstMode os.FileMode) error {
 		return fmt.Errorf("%s is not a regular file", src)
 	}
 
-	source, err := os.Open(src)
+	source, err := os.Open(filepath.Clean(src))
 	if err != nil {
 		return err
 	}
 	defer source.Close()
-
-	destination, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, dstMode)
+	destination, err := os.OpenFile(filepath.Clean(dst), os.O_RDWR|os.O_CREATE|os.O_TRUNC, dstMode)
 	if err != nil {
 		return err
 	}

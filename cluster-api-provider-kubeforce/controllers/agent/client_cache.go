@@ -37,6 +37,7 @@ import (
 	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/agent"
 )
 
+// ClientCache is a cache of agent clients.
 type ClientCache struct {
 	log    logr.Logger
 	client client.Client

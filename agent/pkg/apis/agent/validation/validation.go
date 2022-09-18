@@ -41,7 +41,7 @@ func validatePlaybookSpec(p *agent.PlaybookSpec, fieldPath *field.Path) field.Er
 	if len(p.Files) == 0 {
 		allErrs = append(allErrs, field.Invalid(fieldPath.Child("files"), p.Files, "cannot be empty"))
 	}
-	if len(p.Entrypoint) == 0 {
+	if p.Entrypoint == "" {
 		allErrs = append(allErrs, field.Invalid(fieldPath.Child("entrypoint"), p.Entrypoint, "cannot be empty"))
 	}
 	return allErrs
@@ -68,6 +68,7 @@ func ValidatePlaybookUpdate(newObj *agent.Playbook, oldObj *agent.Playbook) fiel
 	return allErrs
 }
 
+// ValidatePlaybookLogOptions tests if the options for getting logs are legal.
 func ValidatePlaybookLogOptions(opts *agent.PlaybookLogOptions) field.ErrorList {
 	allErrs := field.ErrorList{}
 	if opts.TailLines != nil && *opts.TailLines < 0 {
@@ -91,7 +92,7 @@ func ValidatePlaybookDeploymentCreate(obj *agent.PlaybookDeployment) field.Error
 	return allErrs
 }
 
-// ValidatePlaybookDeploymentUpdate tests to see if the update is legal. The agent.PlaybookDeployment is an immutable object
+// ValidatePlaybookDeploymentUpdate tests to see if the update is legal. The agent.PlaybookDeployment is an immutable object.
 func ValidatePlaybookDeploymentUpdate(newObj *agent.PlaybookDeployment, oldObj *agent.PlaybookDeployment) field.ErrorList {
 	allErrs := apimachineryvalidation.ValidateObjectMetaUpdate(&newObj.ObjectMeta, &oldObj.ObjectMeta, field.NewPath("metadata"))
 	return allErrs

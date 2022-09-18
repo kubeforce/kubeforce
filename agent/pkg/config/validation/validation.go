@@ -22,6 +22,7 @@ import (
 	"k3f.io/kubeforce/agent/pkg/config"
 )
 
+// Validate validates the fields of the Config object.
 func Validate(c *config.Config) field.ErrorList {
 	return validateConfigSpec(&c.Spec, field.NewPath("spec"))
 }

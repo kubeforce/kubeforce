@@ -39,7 +39,7 @@ import (
 	"k3f.io/kubeforce/agent/pkg/manager"
 )
 
-// ServiceCmd represents the Service command
+// ServiceCmd represents the Service command.
 var ServiceCmd = &cobra.Command{
 	Use:   "service",
 	Short: "Run the agent as service.",
