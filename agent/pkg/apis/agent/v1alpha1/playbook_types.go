@@ -82,8 +82,8 @@ type PlaybookStatus struct {
 
 // Policy defines the playbook execution policy.
 type Policy struct {
-	// Specifies the duration in seconds relative to the startTime that the job may be active
-	// before the system tries to terminate it.
+	// Specifies the duration, in seconds, that a playbook can be active
+	// before the system attempts to terminate it.
 	// Defaults to 10m
 	// +optional
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
