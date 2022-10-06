@@ -695,7 +695,7 @@ func schema_pkg_apis_agent_v1alpha1_Policy(ref common.ReferenceCallback) common.
 				Properties: map[string]spec.Schema{
 					"timeout": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Specifies the duration in seconds relative to the startTime that the job may be active before the system tries to terminate it. Defaults to 10m",
+							Description: "Specifies the duration, in seconds, that a playbook can be active before the system attempts to terminate it. Defaults to 10m",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
