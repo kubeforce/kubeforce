@@ -249,6 +249,10 @@ func (r *PlaybookReconciler) runPlaybook(ctx context.Context, pb *v1alpha1.Playb
 	if err != nil {
 		return err
 	}
+	// it is required because if the context is closed go-ansible doesn't return error
+	if ctx.Err() != nil {
+		return err
+	}
 	return nil
 }
 
