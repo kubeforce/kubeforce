@@ -40,7 +40,7 @@ This project is currently a work-in-progress, in an Alpha state, so it may not b
 
 ### Launching a Kubernetes cluster using Kubeforce source code
 
-Check out the developer guide for launching a Kubeforce cluster consisting of Docker containers as hosts.
+Check out the [developer guide](development.md) for launching a Kubeforce cluster consisting of Docker containers as hosts.
 
 More about development and contributing practices can be found in [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
