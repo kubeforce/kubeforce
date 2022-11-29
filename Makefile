@@ -25,10 +25,13 @@ TOOLS_BIN_DIR := $(abspath $(BUILD_DIR)/tools/bin)
 #
 # Tools.
 #
-GOLINTCI_LINT_VER := v1.49.0
+GOLINTCI_LINT_VER := v1.50.1
 GOLINTCI_LINT_BIN := golangci-lint
 GOLINTCI_LINT := $(abspath $(TOOLS_BIN_DIR)/$(GOLINTCI_LINT_BIN)-$(GOLINTCI_LINT_VER))
 GOLINTCI_LINT_PKG := github.com/golangci/golangci-lint/cmd/golangci-lint
+
+HADOLINT_VER := v2.12.0
+HADOLINT_FAILURE_THRESHOLD = warning
 
 .PHONY: help
 help:  ## Display this help
@@ -176,7 +179,7 @@ verify-shellcheck: ## Verify shell files
 
 .PHONY: verify-dockerfiles
 verify-dockerfiles: ## Verify dockerfiles
-	./hack/verify-dockerfiles.sh
+	./hack/verify-dockerfiles.sh $(HADOLINT_VER) $(HADOLINT_FAILURE_THRESHOLD)
 
 ## --------------------------------------
 ## Hack / Tools

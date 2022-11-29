@@ -320,7 +320,7 @@ func (r *KubeforceClusterReconciler) KubeforceMachineToKubeforceCluster(o client
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *KubeforceClusterReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
-	logger := ctrl.LoggerFrom(ctx)
+	logger := ctrl.Log
 	c, err := ctrl.NewControllerManagedBy(mgr).
 		For(&infrav1.KubeforceCluster{}).
 		WithOptions(options).

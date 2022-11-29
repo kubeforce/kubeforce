@@ -25,5 +25,5 @@ FILES=$(find "$(pwd)" -name Dockerfile)
 while read -r file; do
   echo "Linting: ${file}"
   # Configure the linter to fail for warnings and errors. Can be set to: error | warning | info | style | ignore | none
-  docker run --rm -i ghcr.io/hadolint/hadolint:"${HADOLINT_VER}" hadolint --failure-threshold "${HADOLINT_FAILURE_THRESHOLD}" - < "${file}"
+  docker run --rm -i hadolint/hadolint:"${HADOLINT_VER}" hadolint --failure-threshold "${HADOLINT_FAILURE_THRESHOLD}" - < "${file}"
 done <<< "${FILES}"

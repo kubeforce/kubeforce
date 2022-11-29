@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 
@@ -31,15 +32,15 @@ import (
 	expv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
 	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers"
 	agentctrl "k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/playbook"
 	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/prober"
 	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/repository"
-	//+kubebuilder:scaffold:imports
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/webhooks"
 )
 
 var (
@@ -55,7 +56,6 @@ func init() {
 	utilruntime.Must(certv1.AddToScheme(scheme))
 
 	utilruntime.Must(infrav1.AddToScheme(scheme))
-	//+kubebuilder:scaffold:scheme
 }
 
 func main() {
@@ -88,7 +88,55 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
+	ctx := ctrl.SetupSignalHandler()
+	setupChecks(mgr)
+	setupReconcilers(ctx, mgr)
+	setupWebhooks(mgr)
 
+	if err := mgr.Add(&controllers.Initializer{
+		Log:    logger.WithName("initializer"),
+		Client: mgr.GetClient(),
+	}); err != nil {
+		setupLog.Error(err, "unable to create initializer")
+		os.Exit(1)
+	}
+	mgr.GetControllerOptions()
+	setupLog.Info("starting manager")
+	if err := mgr.Start(ctx); err != nil {
+		setupLog.Error(err, "problem running manager")
+		os.Exit(1)
+	}
+}
+
+func setupWebhooks(mgr ctrl.Manager) {
+	if err := (&webhooks.KubeforceMachine{Client: mgr.GetClient()}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "KubeforceMachine")
+		os.Exit(1)
+	}
+	if err := (&webhooks.PlaybookTemplate{Client: mgr.GetClient()}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "PlaybookTemplate")
+		os.Exit(1)
+	}
+	if err := (&webhooks.PlaybookDeploymentTemplate{Client: mgr.GetClient()}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "PlaybookDeploymentTemplate")
+		os.Exit(1)
+	}
+}
+
+func setupChecks(mgr ctrl.Manager) {
+	if err := mgr.AddReadyzCheck("webhook", mgr.GetWebhookServer().StartedChecker()); err != nil {
+		setupLog.Error(err, "unable to create ready check")
+		os.Exit(1)
+	}
+
+	if err := mgr.AddHealthzCheck("webhook", mgr.GetWebhookServer().StartedChecker()); err != nil {
+		setupLog.Error(err, "unable to create health check")
+		os.Exit(1)
+	}
+}
+
+func setupReconcilers(ctx context.Context, mgr ctrl.Manager) {
+	logger := ctrl.Log
 	clusterCacheLog := logger.WithName("remote").WithName("ClusterCacheTracker")
 	tracker, err := remote.NewClusterCacheTracker(
 		mgr,
@@ -101,8 +149,6 @@ func main() {
 		setupLog.Error(err, "unable to create cluster cache tracker")
 		os.Exit(1)
 	}
-
-	ctx := ctrl.SetupSignalHandler()
 
 	agentClientCache, err := agentctrl.NewClientCache(mgr)
 	if err != nil {
@@ -153,11 +199,16 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "KubeforceCluster")
 		os.Exit(1)
 	}
+	templateReconciler := playbook.TemplateReconciler{
+		Client: mgr.GetClient(),
+		Log:    logger.WithName("playbook-template-reconculer"),
+	}
 	if err = (&controllers.KubeforceMachineReconciler{
-		Client:           mgr.GetClient(),
-		Log:              logger.WithName("kf-machine-controller"),
-		Tracker:          tracker,
-		AgentClientCache: agentClientCache,
+		TemplateReconciler: templateReconciler,
+		Client:             mgr.GetClient(),
+		Log:                logger.WithName("kf-machine-controller"),
+		Tracker:            tracker,
+		AgentClientCache:   agentClientCache,
 	}).SetupWithManager(logger, mgr, controller.Options{}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "KubeforceMachine")
 		os.Exit(1)
@@ -183,31 +234,6 @@ func main() {
 		AgentClientCache: agentClientCache,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PlaybookDeployment")
-		os.Exit(1)
-	}
-
-	if err := mgr.Add(&controllers.Initializer{
-		Log:    logger.WithName("initializer"),
-		Client: mgr.GetClient(),
-	}); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "initializer")
-		os.Exit(1)
-	}
-
-	//+kubebuilder:scaffold:builder
-
-	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up health check")
-		os.Exit(1)
-	}
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up ready check")
-		os.Exit(1)
-	}
-
-	setupLog.Info("starting manager")
-	if err := mgr.Start(ctx); err != nil {
-		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
 }

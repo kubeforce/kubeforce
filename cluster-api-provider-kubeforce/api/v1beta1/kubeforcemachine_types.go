@@ -19,6 +19,7 @@ package v1beta1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 )
@@ -50,6 +51,29 @@ type KubeforceMachine struct {
 	Status KubeforceMachineStatus `json:"status,omitempty"`
 }
 
+// GetAgent returns the agent reference.
+func (in *KubeforceMachine) GetAgent() types.NamespacedName {
+	return types.NamespacedName{
+		Namespace: in.Namespace,
+		Name:      in.Spec.AgentRef.Name,
+	}
+}
+
+// GetTemplates returns the map of TemplateReferences.
+func (in *KubeforceMachine) GetTemplates() map[string]*TemplateReference {
+	return in.Spec.TemplateReferences
+}
+
+// GetPlaybookConditions returns conditions of playbooks.
+func (in *KubeforceMachine) GetPlaybookConditions() PlaybookConditions {
+	return in.Status.Playbooks
+}
+
+// SetPlaybookConditions save conditions of playbooks to the managed object.
+func (in *KubeforceMachine) SetPlaybookConditions(playbookConditions PlaybookConditions) {
+	in.Status.Playbooks = playbookConditions
+}
+
 // KubeforceMachineSpec defines the desired state of KubeforceMachine.
 type KubeforceMachineSpec struct {
 	// ProviderID will be the container name in ProviderID format (kf://<cluster>-<machine>)
@@ -64,7 +88,47 @@ type KubeforceMachineSpec struct {
 	// Label selector for agents. If agentRef is empty controller
 	// will find free agent by this selector and update agentRef field.
 	AgentSelector *metav1.LabelSelector `json:"agentSelector,omitempty"`
+
+	// TemplateReferences are references to PlaybookTemplate or PlaybookDeploymentTemplate that the KubeforceMachine should manage.
+	// KubeforceMachine has predifined roles "init", "loadblanacer", "cleanup".
+	// If these predefined TemplateReferences have not been specified by users, they will be created automatically.
+	// +optional
+	TemplateReferences map[string]*TemplateReference `json:"templateReferences,omitempty"`
 }
+
+// TemplateReference is the reference to the PlaybookTemplate or PlaybookDeploymentTemplate.
+// Playbook or PlaybookDeployment is created from these templates during the KubeforceMachine lifecycle.
+type TemplateReference struct {
+	// Kind of the referent.
+	// +kubebuilder:validation:Enum=PlaybookTemplate;PlaybookDeploymentTemplate
+	Kind string `json:"kind,omitempty"`
+	// Namespace of the referent.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+	// Name of the referent.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+	Name string `json:"name,omitempty"`
+	// API version of the referent.
+	APIVersion string `json:"apiVersion,omitempty"`
+	// The priority value.
+	// The higher the value, the higher the priority.
+	Priority int32 `json:"priority,omitempty"`
+	// Type indicates in which phase of the KubeforceMachine life cycle this template will be executed.
+	// +optional
+	// +kubebuilder:validation:Enum=install;delete
+	Type TemplateType `json:"type,omitempty"`
+}
+
+// TemplateType indicates in which phase of the Object life cycle this template will be executed.
+type TemplateType string
+
+const (
+	// TemplateTypeInstall creates Playbooks from this template during object initialization.
+	TemplateTypeInstall = "install"
+	// TemplateTypeDelete generated Playbooks from this template when the object is deleted.
+	TemplateTypeDelete = "delete"
+)
 
 // KubeforceMachineStatus defines the observed state of KubeforceMachine.
 type KubeforceMachineStatus struct {
@@ -74,7 +138,7 @@ type KubeforceMachineStatus struct {
 
 	// Playbooks are playbooks that are controlled by KubeforceMachine.
 	// +optional
-	Playbooks map[string]*PlaybookInfo `json:"playbooks,omitempty"`
+	Playbooks PlaybookConditions `json:"playbooks,omitempty"`
 
 	// InternalIP is an ip address from default interface
 	InternalIP string `json:"internalIP,omitempty"`
@@ -86,6 +150,23 @@ type KubeforceMachineStatus struct {
 	// ObservedGeneration is the latest generation observed by the controller.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+}
+
+// PlaybookConditions provide observations of the operational state of a managed Playbook.
+type PlaybookConditions map[string]*PlaybookCondition
+
+// PlaybookCondition defines current service state of the managed Playbook.
+type PlaybookCondition struct {
+	// Ref will point to the corresponding Playbook or PlaybookDeployment.
+	Ref *corev1.ObjectReference `json:"ref,omitempty"`
+	// Phase is the phase of a Playbook, high-level summary of where the Playbook is in its lifecycle.
+	// +optional
+	Phase string `json:"externalPhase,omitempty"`
+	// Last time the condition transitioned from one status to another.
+	// This should be when the underlying condition changed. If that is not known, then using the time when
+	// the API field changed is acceptable.
+	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime"`
 }
 
 // PlaybookInfo describes the high-level summary of controlled playbooks.
@@ -100,14 +181,16 @@ type PlaybookInfo struct {
 var _ conditions.Setter = &KubeforceMachine{}
 
 // GetConditions returns the set of conditions for this object.
-func (c *KubeforceMachine) GetConditions() clusterv1.Conditions {
-	return c.Status.Conditions
+func (in *KubeforceMachine) GetConditions() clusterv1.Conditions {
+	return in.Status.Conditions
 }
 
 // SetConditions sets the conditions on this object.
-func (c *KubeforceMachine) SetConditions(conditions clusterv1.Conditions) {
-	c.Status.Conditions = conditions
+func (in *KubeforceMachine) SetConditions(conditions clusterv1.Conditions) {
+	in.Status.Conditions = conditions
 }
+
+var _ PlaybookControlObject = &KubeforceMachine{}
 
 //+kubebuilder:object:root=true
 
