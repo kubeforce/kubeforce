@@ -60,16 +60,16 @@ const (
 )
 
 const (
-	// PlaybooksCompletedCondition provides an observation of the KubeforceMachine node initialization process.
-	PlaybooksCompletedCondition clusterv1.ConditionType = "PlaybooksCompleted"
+	// InitPlaybooksCondition provides an observation for the Playbooks during initialization process of the Object.
+	InitPlaybooksCondition clusterv1.ConditionType = "InitPlaybooksCompleted"
 
 	// WaitingForBootstrapDataReason (Severity=Info) documents a KubeforceMachine waiting for the bootstrap
 	// script to be ready before starting to create the container that provides the KubeforceMachine infrastructure.
 	WaitingForBootstrapDataReason = "WaitingForBootstrapData"
 
-	// PlaybookDeployingFailedReason (Severity=Error) documents a KubeforceMachine detecting
-	// an error while deploying the playbook.
-	PlaybookDeployingFailedReason = "PlaybookDeployingFailed"
+	// PlaybooksDeployingFailedReason (Severity=Error) documents a KubeforceMachine detecting
+	// an error while deploying playbooks.
+	PlaybooksDeployingFailedReason = "PlaybooksDeployingFailed"
 
 	// WaitingForCompletionPhaseReason (Severity=Info).
 	WaitingForCompletionPhaseReason = "WaitingForCompletionPhase"
@@ -80,8 +80,8 @@ const (
 )
 
 const (
-	// CleanersCompletedCondition provides an observation of the cleanup process of the KubeforceMachine node.
-	CleanersCompletedCondition clusterv1.ConditionType = "CleanersCompleted"
+	// CleanupPlaybooksCondition provides an observation for the Playbooks of the cleanup process of the Object.
+	CleanupPlaybooksCondition clusterv1.ConditionType = "CleanupPlaybooksCompleted"
 )
 
 const (
@@ -135,4 +135,16 @@ const (
 	// SynchronizationFailedReason (Severity=Error) documents a controller detecting
 	// an error while synchronizing the object.
 	SynchronizationFailedReason = "SynchronizationFailed"
+)
+const (
+	// BootstrapExecSucceededCondition provides an observation of the KubeforceMachine bootstrap process.
+	BootstrapExecSucceededCondition clusterv1.ConditionType = "BootstrapExecSucceeded"
+
+	// BootstrappingReason documents (Severity=Info) a KubeforceMachine currently executing the bootstrap
+	// script that creates the Kubernetes node on the newly provisioned machine infrastructure.
+	BootstrappingReason = "Bootstrapping"
+
+	// BootstrapFailedReason documents (Severity=Warning) a KubeforceMachine controller detecting an error while
+	// bootstrapping the Kubernetes node on the machine just provisioned.
+	BootstrapFailedReason = "BootstrapFailed"
 )

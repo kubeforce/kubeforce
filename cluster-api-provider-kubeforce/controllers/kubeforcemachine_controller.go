@@ -49,19 +49,19 @@ import (
 	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
 	agentctrl "k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
 	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/kubeadm"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/playbook"
 	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/agent"
 	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/ansible"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/assets"
 	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/cloudinit"
-	patchutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/patch"
 )
 
 // KubeforceMachineReconciler reconciles a KubeforceMachine object.
 type KubeforceMachineReconciler struct {
-	Client           client.Client
-	Tracker          *remote.ClusterCacheTracker
-	Log              logr.Logger
-	AgentClientCache *agentctrl.ClientCache
+	TemplateReconciler playbook.TemplateReconciler
+	Client             client.Client
+	Tracker            *remote.ClusterCacheTracker
+	Log                logr.Logger
+	AgentClientCache   *agentctrl.ClientCache
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=kubeforcemachines,verbs=get;list;watch;create;update;patch;delete
@@ -130,7 +130,7 @@ func (r *KubeforceMachineReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		log.Info("Waiting for KubeforceCluster Controller to create cluster infrastructure")
 		conditions.MarkFalse(
 			kubeforceMachine,
-			infrav1.PlaybooksCompletedCondition,
+			infrav1.InitPlaybooksCondition,
 			infrav1.WaitingForClusterInfrastructureReason,
 			clusterv1.ConditionSeverityInfo, "")
 		return ctrl.Result{}, nil
@@ -158,7 +158,8 @@ func patchKubeforceMachine(ctx context.Context, patchHelper *patch.Helper, kubef
 	conditions.SetSummary(kubeforceMachine,
 		conditions.WithConditions(
 			infrav1.AgentProvisionedCondition,
-			infrav1.PlaybooksCompletedCondition,
+			infrav1.InitPlaybooksCondition,
+			infrav1.BootstrapExecSucceededCondition,
 			bootstrapv1.DataSecretAvailableCondition,
 		),
 		conditions.WithStepCounterIf(kubeforceMachine.ObjectMeta.DeletionTimestamp.IsZero()),
@@ -172,7 +173,8 @@ func patchKubeforceMachine(ctx context.Context, patchHelper *patch.Helper, kubef
 		patch.WithOwnedConditions{Conditions: []clusterv1.ConditionType{
 			clusterv1.ReadyCondition,
 			infrav1.AgentProvisionedCondition,
-			infrav1.PlaybooksCompletedCondition,
+			infrav1.InitPlaybooksCondition,
+			infrav1.BootstrapExecSucceededCondition,
 			bootstrapv1.DataSecretAvailableCondition,
 		}},
 	)
@@ -216,7 +218,12 @@ func (r *KubeforceMachineReconciler) reconcileNormal(ctx context.Context, cluste
 		kubeforceMachine.Status.InternalIP = info.Spec.Network.InternalIP
 	}
 
-	ready, err := r.reconcilePlaybooks(ctx, infrav1.PlaybooksCompletedCondition, kubeforceMachine, kfAgent, r.createPlaybookGenerators(config, kfAgent, kubeforceMachine, kubeforceCluster))
+	vars := make(map[string]interface{})
+	vars["kubernetesVersion"] = config.GetKubernetesVersion()
+	vars["apiServers"] = r.getAPIServerEndpoints(kubeforceMachine, kubeforceCluster)
+	vars["apiServerPort"] = "6443"
+	vars["targetArch"] = kfAgent.Spec.System.Arch
+	ready, err := r.TemplateReconciler.Reconcile(ctx, kubeforceMachine, infrav1.TemplateTypeInstall, vars)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -237,6 +244,15 @@ func (r *KubeforceMachineReconciler) reconcileNormal(ctx context.Context, cluste
 		return ctrl.Result{}, nil
 	}
 	conditions.MarkTrue(kubeforceMachine, bootstrapv1.DataSecretAvailableCondition)
+
+	ready, err = r.reconcileCloudInitPlaybook(ctx, config, kubeforceMachine, kfAgent)
+	if err != nil {
+		conditions.MarkFalse(kubeforceMachine, infrav1.BootstrapExecSucceededCondition, infrav1.BootstrappingReason, clusterv1.ConditionSeverityError, err.Error())
+		return ctrl.Result{}, err
+	}
+	if !ready {
+		return ctrl.Result{}, nil
+	}
 
 	// Usually a cloud provider will do this, but there is no kubeforce-cloud provider.
 	// Set ProviderID so the Cluster API Machine Controller can pull it
@@ -469,17 +485,17 @@ func (r *KubeforceMachineReconciler) reconcileCleaner(ctx context.Context, kfMac
 		if apierrors.IsNotFound(err) {
 			return true, nil
 		}
-		conditions.MarkFalse(kfMachine, infrav1.CleanersCompletedCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, err.Error())
+		conditions.MarkFalse(kfMachine, infrav1.CleanupPlaybooksCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, err.Error())
 		return false, err
 	}
 	// wait 20 seconds for the agent to be ready
 	if !agent.IsHealthy(kfAgent) && time.Since(kfMachine.DeletionTimestamp.Time) < time.Second*20 {
-		conditions.MarkFalse(kfMachine, infrav1.CleanersCompletedCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, "Wait for agent ready")
+		conditions.MarkFalse(kfMachine, infrav1.CleanupPlaybooksCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, "Wait for agent ready")
 		return false, nil
 	}
 
 	if agent.IsHealthy(kfAgent) {
-		ready, err := r.reconcilePlaybooks(ctx, infrav1.CleanersCompletedCondition, kfMachine, kfAgent, r.cleanerGenerators())
+		ready, err := r.TemplateReconciler.Reconcile(ctx, kfMachine, infrav1.TemplateTypeDelete, nil)
 		if err != nil {
 			return false, err
 		}
@@ -491,125 +507,45 @@ func (r *KubeforceMachineReconciler) reconcileCleaner(ctx context.Context, kfMac
 	delete(kfAgent.Labels, infrav1.AgentMachineLabel)
 	// use optimistic concurrent update here
 	if err := r.Client.Update(ctx, kfAgent); err != nil {
-		conditions.MarkFalse(kfMachine, infrav1.CleanersCompletedCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, err.Error())
+		conditions.MarkFalse(kfMachine, infrav1.CleanupPlaybooksCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, err.Error())
 		return false, err
 	}
 	return true, nil
 }
 
-func (r *KubeforceMachineReconciler) reconcilePlaybooks(ctx context.Context, t clusterv1.ConditionType, kfMachine *infrav1.KubeforceMachine, kfAgent *infrav1.KubeforceAgent, playbooks []*playbookGenerator) (bool, error) {
-	// to avoid duplication, new playbooks should be added to the status immediately
-	patchHelper, err := patch.NewHelper(kfMachine, r.Client)
+func (r *KubeforceMachineReconciler) reconcileCloudInitPlaybook(ctx context.Context, config kubeadm.Config, kfMachine *infrav1.KubeforceMachine, kfAgent *infrav1.KubeforceAgent) (bool, error) {
+	pb, err := r.findPlaybookByRole(ctx, kfMachine, "boot")
 	if err != nil {
 		return false, err
 	}
-	defer func() {
-		if err := patchHelper.Patch(ctx, kfMachine); err != nil {
-			r.Log.
-				WithValues("machine", kfMachine.Name).
-				Error(err, "failed to patch object")
-		}
-	}()
-	for _, playbookGen := range playbooks {
-		ready := false
-		if playbookGen.Deployment {
-			var err error
-			ready, err = r.reconcilePlaybookDeployment(ctx, kfMachine, kfAgent, playbookGen)
-			if err != nil {
-				conditions.MarkFalse(kfMachine, t, infrav1.PlaybookDeployingFailedReason, clusterv1.ConditionSeverityError, err.Error())
-				return false, err
-			}
-		} else {
-			var err error
-			ready, err = r.reconcilePlaybook(ctx, kfMachine, kfAgent, playbookGen)
-			if err != nil {
-				conditions.MarkFalse(kfMachine, t, infrav1.PlaybookDeployingFailedReason, clusterv1.ConditionSeverityError, err.Error())
-				return false, err
-			}
-		}
-		if !ready {
-			msg := fmt.Sprintf("waiting for playbook with role: %s", playbookGen.Role)
-			conditions.MarkFalse(kfMachine, t, infrav1.WaitingForCompletionPhaseReason, clusterv1.ConditionSeverityInfo, msg)
-			return false, nil
-		}
-	}
-	conditions.MarkTrue(kfMachine, t)
-	return true, nil
-}
-
-func (r *KubeforceMachineReconciler) reconcilePlaybookDeployment(ctx context.Context, kfMachine *infrav1.KubeforceMachine, kfAgent *infrav1.KubeforceAgent, playbookGen *playbookGenerator) (bool, error) {
-	role := playbookGen.Role
-	pd, err := r.findPlaybookDeploymentByRole(ctx, kfMachine, role)
-	if err != nil {
-		return false, err
-	}
-	if kfMachine.Status.Playbooks == nil {
-		kfMachine.Status.Playbooks = make(map[string]*infrav1.PlaybookInfo)
-	}
-	playbookData, err := playbookGen.Generate(ctx)
-	if err != nil {
-		return false, err
-	}
-	if pd != nil {
-		kfMachine.Status.Playbooks[role] = &infrav1.PlaybookInfo{
-			Name:  pd.Name,
-			Phase: pd.Status.ExternalPhase,
-		}
-
-		updated, err := r.updatePlaybookDeployment(ctx, pd, kfMachine, kfAgent, playbookData, role)
-		if err != nil {
-			return false, err
-		}
-		if updated {
-			return false, nil
-		}
-		if conditions.IsTrue(pd, infrav1.SynchronizationCondition) && pd.Status.ExternalPhase == "Succeeded" {
+	if pb != nil {
+		if conditions.IsTrue(pb, infrav1.SynchronizationCondition) && pb.Status.ExternalPhase == "Succeeded" {
+			// Update the BootstrapExecSucceededCondition condition
+			conditions.MarkTrue(kfMachine, infrav1.BootstrapExecSucceededCondition)
 			return true, nil
 		}
+		conditions.MarkFalse(kfMachine, infrav1.BootstrapExecSucceededCondition, infrav1.BootstrappingReason, clusterv1.ConditionSeverityWarning, pb.Status.ExternalPhase)
 		return false, nil
 	}
-	pd, err = r.createPlaybookDeployment(ctx, kfMachine, kfAgent, playbookData, role)
+	data, err := config.GetBootstrapData(ctx)
 	if err != nil {
 		return false, err
 	}
-	kfMachine.Status.Playbooks[role] = &infrav1.PlaybookInfo{
-		Name:  pd.Name,
-		Phase: pd.Status.ExternalPhase,
+	kubeadmConfig, err := config.GetKubeadmConfig(ctx)
+	if err != nil {
+		return false, err
 	}
-	return false, nil
-}
+	adapter := cloudinit.NewAnsibleAdapter(kubeadmConfig.Spec)
+	playbookData, err := adapter.ToPlaybook(data)
+	if err != nil {
+		return false, err
+	}
 
-func (r *KubeforceMachineReconciler) reconcilePlaybook(ctx context.Context, kfMachine *infrav1.KubeforceMachine, kfAgent *infrav1.KubeforceAgent, playbookGen *playbookGenerator) (bool, error) {
-	role := playbookGen.Role
-	playbook, err := r.findPlaybookByRole(ctx, kfMachine, role)
+	pb, err = r.createPlaybook(ctx, kfMachine, kfAgent, playbookData, "boot")
 	if err != nil {
 		return false, err
 	}
-	if kfMachine.Status.Playbooks == nil {
-		kfMachine.Status.Playbooks = make(map[string]*infrav1.PlaybookInfo)
-	}
-	if playbook != nil {
-		kfMachine.Status.Playbooks[role] = &infrav1.PlaybookInfo{
-			Name:  playbook.Name,
-			Phase: playbook.Status.ExternalPhase,
-		}
-		if conditions.IsTrue(playbook, infrav1.SynchronizationCondition) && playbook.Status.ExternalPhase == "Succeeded" {
-			return true, nil
-		}
-		return false, nil
-	}
-	playbookData, err := playbookGen.Generate(ctx)
-	if err != nil {
-		return false, err
-	}
-	playbook, err = r.createPlaybook(ctx, kfMachine, kfAgent, playbookData, role)
-	if err != nil {
-		return false, err
-	}
-	kfMachine.Status.Playbooks[role] = &infrav1.PlaybookInfo{
-		Name:  playbook.Name,
-		Phase: playbook.Status.ExternalPhase,
-	}
+	conditions.MarkFalse(kfMachine, infrav1.BootstrapExecSucceededCondition, infrav1.BootstrappingReason, clusterv1.ConditionSeverityWarning, pb.Status.ExternalPhase)
 	return false, nil
 }
 
@@ -641,95 +577,6 @@ func (r *KubeforceMachineReconciler) findPlaybookByRole(ctx context.Context, kfM
 		return nil, errors.Errorf("expected one Playbook for role %s but found %d", role, len(list.Items))
 	}
 	return &list.Items[0], nil
-}
-
-func (r *KubeforceMachineReconciler) findPlaybookDeploymentByRole(ctx context.Context, kfMachine *infrav1.KubeforceMachine, role string) (*infrav1.PlaybookDeployment, error) {
-	list := &infrav1.PlaybookDeploymentList{}
-	listOptions := client.MatchingLabelsSelector{
-		Selector: labels.Set(playbookLabelsByMachine(kfMachine, role)).AsSelector(),
-	}
-	err := r.Client.List(ctx, list, listOptions)
-	if err != nil && apierrors.IsNotFound(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	if len(list.Items) == 0 {
-		return nil, nil
-	}
-	if len(list.Items) > 1 {
-		return nil, errors.Errorf("expected one PlaybookDeployment for role %s but found %d", role, len(list.Items))
-	}
-	return &list.Items[0], nil
-}
-
-func (r *KubeforceMachineReconciler) updatePlaybookDeployment(ctx context.Context, pd *infrav1.PlaybookDeployment, kfMachine *infrav1.KubeforceMachine, kfAgent *infrav1.KubeforceAgent, data *ansible.Playbook, role string) (bool, error) {
-	patchObj := client.MergeFrom(pd.DeepCopy())
-	for key, value := range playbookLabelsByMachine(kfMachine, role) {
-		pd.Labels[key] = value
-	}
-	pd.Spec.AgentRef = corev1.LocalObjectReference{
-		Name: kfAgent.Name,
-	}
-	pd.Spec.Template.Spec = infrav1.RemotePlaybookSpec{
-		Files:      data.Files,
-		Entrypoint: data.Entrypoint,
-	}
-
-	changed, err := patchutil.HasChanges(patchObj, pd)
-	if err != nil {
-		return false, errors.WithStack(err)
-	}
-
-	if changed {
-		r.Log.Info("updating PlaybookDeployment", "key", client.ObjectKeyFromObject(pd))
-		err := r.Client.Patch(ctx, pd, patchObj)
-		if err != nil {
-			return false, errors.Wrapf(err, "failed to patch PlaybookDeployment")
-		}
-		return true, nil
-	}
-	return false, nil
-}
-
-func (r *KubeforceMachineReconciler) createPlaybookDeployment(ctx context.Context, kfMachine *infrav1.KubeforceMachine, kfAgent *infrav1.KubeforceAgent, data *ansible.Playbook, role string) (*infrav1.PlaybookDeployment, error) {
-	suffix := fmt.Sprintf("-%s-", role)
-	pd := &infrav1.PlaybookDeployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.SimpleNameGenerator.GenerateName(kfMachine.Name + suffix),
-			Namespace: kfMachine.Namespace,
-			Labels:    playbookLabelsByMachine(kfMachine, role),
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion:         infrav1.GroupVersion.String(),
-					Kind:               "KubeforceMachine",
-					Name:               kfMachine.Name,
-					UID:                kfMachine.UID,
-					Controller:         pointer.BoolPtr(true),
-					BlockOwnerDeletion: pointer.BoolPtr(true),
-				},
-			},
-		},
-		Spec: infrav1.PlaybookDeploymentSpec{
-			AgentRef: corev1.LocalObjectReference{
-				Name: kfAgent.Name,
-			},
-			Template: infrav1.PlaybookTemplateSpec{
-				Spec: infrav1.RemotePlaybookSpec{
-					Files:      data.Files,
-					Entrypoint: data.Entrypoint,
-				},
-			},
-			Paused: false,
-		},
-	}
-	r.Log.Info("creating PlaybookDeployment", "key", client.ObjectKeyFromObject(pd))
-	err := r.Client.Create(ctx, pd)
-	if err != nil {
-		return nil, err
-	}
-	return pd, nil
 }
 
 func (r *KubeforceMachineReconciler) createPlaybook(ctx context.Context, kfMachine *infrav1.KubeforceMachine, kfAgent *infrav1.KubeforceAgent, data *ansible.Playbook, role string) (*infrav1.Playbook, error) {
@@ -768,23 +615,6 @@ func (r *KubeforceMachineReconciler) createPlaybook(ctx context.Context, kfMachi
 	return p, nil
 }
 
-type playbookGenerator struct {
-	Role       string
-	Deployment bool
-	Generate   func(ctx context.Context) (*ansible.Playbook, error)
-}
-
-func (r *KubeforceMachineReconciler) cleanerGenerators() []*playbookGenerator {
-	generators := make([]*playbookGenerator, 0)
-	generators = append(generators, &playbookGenerator{
-		Role: "cleanup",
-		Generate: func(ctx context.Context) (*ansible.Playbook, error) {
-			return assets.GetPlaybook(assets.PlaybookCleaner, nil)
-		},
-	})
-	return generators
-}
-
 func (r *KubeforceMachineReconciler) getAPIServerEndpoints(kfMachine *infrav1.KubeforceMachine, kubeforceCluster *infrav1.KubeforceCluster) []string {
 	_, isControlPlane := kfMachine.ObjectMeta.Labels[clusterv1.MachineControlPlaneLabelName]
 	if !isControlPlane {
@@ -800,50 +630,6 @@ func (r *KubeforceMachineReconciler) getAPIServerEndpoints(kfMachine *infrav1.Ku
 	apiservers = append(apiservers, kfMachine.Status.InternalIP)
 	sort.Strings(apiservers)
 	return apiservers
-}
-
-func (r *KubeforceMachineReconciler) createPlaybookGenerators(config kubeadm.Config, kfAgent *infrav1.KubeforceAgent,
-	kfMachine *infrav1.KubeforceMachine, kubeforceCluster *infrav1.KubeforceCluster) []*playbookGenerator {
-	generators := make([]*playbookGenerator, 0)
-	generators = append(generators, &playbookGenerator{
-		Role: "init",
-		Generate: func(ctx context.Context) (*ansible.Playbook, error) {
-			vars := make(map[string]interface{})
-			vars["kubernetesVersion"] = config.GetKubernetesVersion()
-			vars["targetArch"] = kfAgent.Spec.System.Arch
-			return assets.GetPlaybook(assets.PlaybookInstaller, vars)
-		},
-	})
-	generators = append(generators, &playbookGenerator{
-		Role:       "loadbalancer",
-		Deployment: true,
-		Generate: func(ctx context.Context) (*ansible.Playbook, error) {
-			vars := make(map[string]interface{})
-			vars["apiServers"] = r.getAPIServerEndpoints(kfMachine, kubeforceCluster)
-			vars["apiServerPort"] = "6443"
-			vars["targetArch"] = kfAgent.Spec.System.Arch
-			return assets.GetPlaybook(assets.PlaybookLoadbalancer, vars)
-		},
-	})
-	// Make sure bootstrap data is available and populated.
-	if config.IsDataAvailable() {
-		generators = append(generators, &playbookGenerator{
-			Role: "boot",
-			Generate: func(ctx context.Context) (*ansible.Playbook, error) {
-				data, err := config.GetBootstrapData(ctx)
-				if err != nil {
-					return nil, err
-				}
-				kubeadmConfig, err := config.GetKubeadmConfig(ctx)
-				if err != nil {
-					return nil, err
-				}
-				adapter := cloudinit.NewAnsibleAdapter(kubeadmConfig.Spec)
-				return adapter.ToPlaybook(data)
-			},
-		})
-	}
-	return generators
 }
 
 // setNodeProviderID sets the kubeforce provider ID for the kubernetes node.

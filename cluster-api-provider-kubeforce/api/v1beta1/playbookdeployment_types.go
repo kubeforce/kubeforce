@@ -80,19 +80,6 @@ type PlaybookDeploymentSpec struct {
 	Paused bool `json:"paused,omitempty"`
 }
 
-// PlaybookTemplateSpec describes the data a playbook should have when created from a template.
-type PlaybookTemplateSpec struct {
-	// Standard object's metadata.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-	// +optional
-	ObjectMeta `json:"metadata,omitempty"`
-
-	// Specification of the desired behavior of the playbook.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-	// +optional
-	Spec RemotePlaybookSpec `json:"spec,omitempty"`
-}
-
 // PlaybookDeploymentStatus defines the observed state of PlaybookDeployment.
 type PlaybookDeploymentStatus struct {
 	// ExternalName is the name of PlaybookDeployment on the node

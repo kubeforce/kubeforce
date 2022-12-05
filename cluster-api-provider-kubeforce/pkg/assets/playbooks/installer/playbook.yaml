@@ -23,6 +23,19 @@
   vars_files:
     - variables.yaml
   tasks:
+    - name: Enable EPEL Repository on CentOS 8
+      dnf:
+        name: epel-release
+      when:
+        - ansible_facts['os_family'] == 'RedHat'
+        - ansible_facts['distribution_major_version'] == '8'
+    - name: Enable EPEL Repository on CentOS 7
+      yum:
+        name: epel-release
+      when:
+        - ansible_facts['os_family'] == 'RedHat'
+        - ansible_facts['distribution_major_version'] == '7'
+
     - name: ensure packages
       package:
         name:
@@ -31,7 +44,27 @@
           - ethtool
           - conntrack
           - iptables
+          - unzip
+          - tar
+          - bzip2
+          - zstd
+          - gzip
         state: present
+
+    - name: Install required packages for RedHat family
+      package:
+        name:
+          - xz
+      when:
+        - ansible_facts['os_family'] == 'RedHat'
+
+    - name: Install required packages for Debian family
+      package:
+        name:
+          - xz-utils
+      when:
+        - ansible_facts['os_family'] == 'Debian'
+
     - name: optional packages
       package:
         name:
