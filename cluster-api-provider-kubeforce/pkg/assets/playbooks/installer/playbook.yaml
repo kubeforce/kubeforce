@@ -71,12 +71,6 @@
           - curl
         state: present
 
-    - name: Populate service facts
-      ansible.builtin.service_facts:
-
-    - name: Load kernel modules
-      ansible.builtin.service_facts:
-
     - name: Verify if br_netfilter module exists
       command: "modinfo br_netfilter"
       register: modinfo_br_netfilter
@@ -188,8 +182,9 @@
         dest: "{{ item }}"
       with_items:
         - /etc/sysctl.d/
-      notify:
-        - Reload sysctl
+
+    - name: Reload sysctl
+      shell: sysctl --system
 
     - name: Copy containerd service files
       copy:
@@ -224,11 +219,18 @@
       notify:
         - Restart containerd
 
+    - name: Check NetworkManager status
+      shell: systemctl is-active NetworkManager.service || systemctl is-enabled NetworkManager.service
+      failed_when: false
+      register: network_manager_enabled
+
     - name: Copy NetworkManager files
+      when:
+        - network_manager_enabled.rc is defined
+        - network_manager_enabled.rc == 0
       copy:
         src: "files{{ item }}"
         dest: "{{ item }}"
-      when: "'NetworkManager.service' in ansible_facts.services"
       with_items:
         - /etc/NetworkManager/conf.d/
       notify:
@@ -265,9 +267,6 @@
         daemon_reload: true
         name: NetworkManager.service
         state: restarted
-    - name: Reload sysctl
-      shell: sysctl --system
-
 
 # docker run -ti --name=knode --privileged --security-opt seccomp=unconfined --tmpfs /tmp --tmpfs /run -v /var -v /lib/modules:/lib/modules:ro kindest/node:v1.21.2
 # docker exec -ti -e KUBECONFIG=/etc/kubernetes/admin.conf knode bash
