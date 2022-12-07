@@ -59,8 +59,6 @@ spec:
                       type: string
                     externalIP:
                       type: string
-                    hostname:
-                      type: string
                     internalDNS:
                       type: string
                     internalIP:
@@ -104,8 +102,6 @@ spec:
                           externalDNS:
                             type: string
                           externalIP:
-                            type: string
-                          hostname:
                             type: string
                           internalDNS:
                             type: string

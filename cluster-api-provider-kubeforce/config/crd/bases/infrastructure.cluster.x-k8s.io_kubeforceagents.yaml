@@ -87,8 +87,6 @@ spec:
                     type: string
                   externalIP:
                     type: string
-                  hostname:
-                    type: string
                   internalDNS:
                     type: string
                   internalIP:

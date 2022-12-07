@@ -71,7 +71,7 @@ func (webhook *KubeforceMachine) Default(ctx context.Context, obj runtime.Object
 			APIVersion: infrav1.GroupVersion.String(),
 		}
 	}
-	in.Spec.TemplateReferences[initRole].Priority = 100
+	in.Spec.TemplateReferences[initRole].Priority = 1000
 	in.Spec.TemplateReferences[initRole].Type = infrav1.TemplateTypeInstall
 
 	lbRole := string(assets.PlaybookLoadbalancer)
@@ -83,7 +83,7 @@ func (webhook *KubeforceMachine) Default(ctx context.Context, obj runtime.Object
 			APIVersion: infrav1.GroupVersion.String(),
 		}
 	}
-	in.Spec.TemplateReferences[lbRole].Priority = 200
+	in.Spec.TemplateReferences[lbRole].Priority = 100
 	in.Spec.TemplateReferences[lbRole].Type = infrav1.TemplateTypeInstall
 
 	cleanerRole := string(assets.PlaybookCleaner)
@@ -96,7 +96,7 @@ func (webhook *KubeforceMachine) Default(ctx context.Context, obj runtime.Object
 		}
 	}
 
-	in.Spec.TemplateReferences[cleanerRole].Priority = 100
+	in.Spec.TemplateReferences[cleanerRole].Priority = 1000
 	in.Spec.TemplateReferences[cleanerRole].Type = infrav1.TemplateTypeDelete
 	return nil
 }
