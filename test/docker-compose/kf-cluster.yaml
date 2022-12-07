@@ -103,15 +103,12 @@ metadata:
 spec:
   addresses:
     master1:
-      hostname: master1
       externalIP: 172.18.0.4
     master2:
-      hostname: master2
       externalIP: 172.18.0.5
 #  addressRanges:
 #    - from: 172.18.0.10
 #      to: 172.18.0.15
-#      hostname: "master-{{ .index }}.local"
   template:
     metadata:
       labels:
@@ -146,7 +143,6 @@ metadata:
     role: master
 spec:
   addresses:
-    hostname: master3
     externalIP: 172.18.0.6
   source:
     repoRef:
@@ -274,10 +270,8 @@ metadata:
 spec:
   addresses:
     worker1:
-      hostname: worker1
       externalIP: 172.18.0.7
     worker2:
-      hostname: worker2
       externalIP: 172.18.0.8
   template:
     metadata:
@@ -319,7 +313,6 @@ spec:
       name: local-agent-repo
     version: latest
   addresses:
-    hostname: worker3
     externalIP: 172.18.0.9
   ssh:
     username: test
