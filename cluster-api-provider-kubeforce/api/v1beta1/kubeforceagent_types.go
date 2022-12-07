@@ -230,8 +230,6 @@ type SSHParams struct {
 // Addresses is addresses assigned to the node.
 type Addresses struct {
 	// +optional
-	Hostname string `json:"hostname,omitempty"`
-	// +optional
 	ExternalIP string `json:"externalIP,omitempty"`
 	// +optional
 	InternalIP string `json:"internalIP,omitempty"`
