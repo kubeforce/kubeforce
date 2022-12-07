@@ -148,3 +148,12 @@ const (
 	// bootstrapping the Kubernetes node on the machine just provisioned.
 	BootstrapFailedReason = "BootstrapFailed"
 )
+
+const (
+	// ProviderIDSucceededCondition monitors the provision of the ProviderID.
+	ProviderIDSucceededCondition clusterv1.ConditionType = "ProviderIDProvisioned"
+
+	// ProviderIDFailedReason documents (Severity=Error) a KubeforceMachine controller detecting an error while
+	// provision ProviderID.
+	ProviderIDFailedReason = "ProviderIDFailed"
+)

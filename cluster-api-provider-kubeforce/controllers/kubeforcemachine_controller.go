@@ -160,6 +160,7 @@ func patchKubeforceMachine(ctx context.Context, patchHelper *patch.Helper, kubef
 			infrav1.AgentProvisionedCondition,
 			infrav1.InitPlaybooksCondition,
 			infrav1.BootstrapExecSucceededCondition,
+			infrav1.ProviderIDSucceededCondition,
 			bootstrapv1.DataSecretAvailableCondition,
 		),
 		conditions.WithStepCounterIf(kubeforceMachine.ObjectMeta.DeletionTimestamp.IsZero()),
@@ -175,6 +176,7 @@ func patchKubeforceMachine(ctx context.Context, patchHelper *patch.Helper, kubef
 			infrav1.AgentProvisionedCondition,
 			infrav1.InitPlaybooksCondition,
 			infrav1.BootstrapExecSucceededCondition,
+			infrav1.ProviderIDSucceededCondition,
 			bootstrapv1.DataSecretAvailableCondition,
 		}},
 	)
@@ -256,21 +258,20 @@ func (r *KubeforceMachineReconciler) reconcileNormal(ctx context.Context, cluste
 
 	// Usually a cloud provider will do this, but there is no kubeforce-cloud provider.
 	// Set ProviderID so the Cluster API Machine Controller can pull it
-	if kubeforceMachine.Spec.ProviderID == nil {
-		providerID := r.providerID(kubeforceMachine)
-		if err := r.setNodeProviderID(ctx, cluster, agentClient, providerID); err != nil {
-			return ctrl.Result{}, errors.Wrap(err, "unable to set providerID")
-		}
-		kubeforceMachine.Spec.ProviderID = &providerID
-		kubeforceMachine.Status.Ready = true
+	err = r.reconcileNodeProviderID(ctx, kubeforceMachine, cluster, agentClient)
+	if err != nil {
+		conditions.MarkFalse(kubeforceMachine, infrav1.ProviderIDSucceededCondition, infrav1.ProviderIDFailedReason, clusterv1.ConditionSeverityError, err.Error())
+		return ctrl.Result{}, err
 	}
+	conditions.MarkTrue(kubeforceMachine, infrav1.ProviderIDSucceededCondition)
+	kubeforceMachine.Status.Ready = true
 
 	return ctrl.Result{}, nil
 }
 
 // providerID return the provider identifier for this machine.
 func (r *KubeforceMachineReconciler) providerID(m *infrav1.KubeforceMachine) string {
-	return fmt.Sprintf("kf://%s", m.Name)
+	return fmt.Sprintf("kf://%s", m.Spec.AgentRef.Name)
 }
 
 func (r *KubeforceMachineReconciler) reconcileAgentRef(ctx context.Context, kfMachine *infrav1.KubeforceMachine) (ctrl.Result, error) {
@@ -632,12 +633,10 @@ func (r *KubeforceMachineReconciler) getAPIServerEndpoints(kfMachine *infrav1.Ku
 	return apiservers
 }
 
-// setNodeProviderID sets the kubeforce provider ID for the kubernetes node.
-func (r *KubeforceMachineReconciler) setNodeProviderID(ctx context.Context,
-	cluster *clusterv1.Cluster, agentClient *clientset.Clientset, providerID string) error {
-	remoteClient, err := r.Tracker.GetClient(ctx, util.ObjectKey(cluster))
-	if err != nil {
-		return err
+func (r *KubeforceMachineReconciler) reconcileNodeProviderID(ctx context.Context, kfMachine *infrav1.KubeforceMachine,
+	cluster *clusterv1.Cluster, agentClient *clientset.Clientset) error {
+	if kfMachine.Spec.ProviderID != nil {
+		return nil
 	}
 	info, err := agentClient.AgentV1alpha1().SysInfos().Get(ctx)
 	if err != nil {
@@ -646,20 +645,25 @@ func (r *KubeforceMachineReconciler) setNodeProviderID(ctx context.Context,
 	if info.Spec.Network.Hostname == "" {
 		return errors.New("hostname is empty")
 	}
-	key := client.ObjectKey{
-		Name: info.Spec.Network.Hostname,
-	}
-	node := &corev1.Node{}
-	if err := remoteClient.Get(ctx, key, node); err != nil {
+	remoteClient, err := r.Tracker.GetClient(ctx, util.ObjectKey(cluster))
+	if err != nil {
 		return err
 	}
-	if node.Spec.ProviderID != providerID {
-		p := client.MergeFrom(node.DeepCopy())
-		node.Spec.ProviderID = providerID
-
-		if err := remoteClient.Patch(ctx, node, p); err != nil {
-			return err
-		}
+	node := &corev1.Node{}
+	if err := remoteClient.Get(ctx, client.ObjectKey{Name: info.Spec.Network.Hostname}, node); err != nil {
+		return err
 	}
+
+	if node.Spec.ProviderID != "" {
+		kfMachine.Spec.ProviderID = pointer.String(node.Spec.ProviderID)
+		return nil
+	}
+	providerID := r.providerID(kfMachine)
+	p := client.MergeFrom(node.DeepCopy())
+	node.Spec.ProviderID = providerID
+	if err := remoteClient.Patch(ctx, node, p); err != nil {
+		return err
+	}
+	kfMachine.Spec.ProviderID = pointer.String(node.Spec.ProviderID)
 	return nil
 }
