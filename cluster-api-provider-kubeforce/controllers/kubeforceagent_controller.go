@@ -22,8 +22,6 @@ import (
 	"os"
 	"time"
 
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 	certutil "github.com/cert-manager/cert-manager/pkg/api/util"
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
@@ -33,7 +31,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util"
 	capiutil "sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -44,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
@@ -87,8 +85,8 @@ func (r *KubeforceAgentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	log = log.WithValues("agent", client.ObjectKeyFromObject(kfAgent))
 
 	// Fetch the Cluster.
-	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, kfAgent.ObjectMeta)
-	if err != nil && errors.Cause(err) != util.ErrNoCluster {
+	cluster, err := capiutil.GetClusterFromMetadata(ctx, r.Client, kfAgent.ObjectMeta)
+	if err != nil && errors.Cause(err) != capiutil.ErrNoCluster {
 		log.Error(err, "unable to get cluster for KubeforceAgent", "playbook", req)
 		return ctrl.Result{}, err
 	}
@@ -171,7 +169,7 @@ func (r *KubeforceAgentReconciler) SetupWithManager(logger logr.Logger, mgr ctrl
 	if err != nil {
 		return err
 	}
-	clusterToAgents, err := util.ClusterToObjectsMapper(mgr.GetClient(), &infrav1.KubeforceAgentList{}, mgr.GetScheme())
+	clusterToAgents, err := capiutil.ClusterToObjectsMapper(mgr.GetClient(), &infrav1.KubeforceAgentList{}, mgr.GetScheme())
 	if err != nil {
 		return err
 	}

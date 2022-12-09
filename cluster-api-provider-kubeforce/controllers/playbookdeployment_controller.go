@@ -21,19 +21,17 @@ import (
 	"fmt"
 	"time"
 
-	"sigs.k8s.io/cluster-api/util/predicates"
-
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util"
 	capiutil "sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
+	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -72,8 +70,8 @@ func (r *PlaybookDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Fetch the Cluster.
-	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, pd.ObjectMeta)
-	if err != nil && errors.Cause(err) != util.ErrNoCluster {
+	cluster, err := capiutil.GetClusterFromMetadata(ctx, r.Client, pd.ObjectMeta)
+	if err != nil && errors.Cause(err) != capiutil.ErrNoCluster {
 		log.Error(err, "unable to get cluster for PlaybookDeployment", "playbook", req)
 		return ctrl.Result{}, err
 	}
@@ -156,7 +154,7 @@ func (r *PlaybookDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error 
 	if err != nil {
 		return err
 	}
-	clusterToPlaybookDeployments, err := util.ClusterToObjectsMapper(mgr.GetClient(), &infrav1.PlaybookDeploymentList{}, mgr.GetScheme())
+	clusterToPlaybookDeployments, err := capiutil.ClusterToObjectsMapper(mgr.GetClient(), &infrav1.PlaybookDeploymentList{}, mgr.GetScheme())
 	if err != nil {
 		return err
 	}
