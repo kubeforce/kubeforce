@@ -16,7 +16,6 @@ This provider helps install all the necessary Kubernetes components (kubelet, ku
 
 - Native Kubernetes manifests and API
 - Support for single and multi-node control plane clusters
-- Support for pre-provisioned Linux hosts
 - Support for processor architectures: amd64, arm64, arm
 
 ## Getting Started
@@ -48,4 +47,4 @@ More about development and contributing practices can be found in [`CONTRIBUTING
 
 ## Compatibility with Cluster API
 
-- Kubeforce is currently compatible wth Cluster API (v1.2.x)
+- Kubeforce is currently compatible wth Cluster API (v1.3.x)

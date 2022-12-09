@@ -81,8 +81,22 @@ func (r *KubeforceMachineReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 	r.Log.Info("reconciling KubeforceMachine", "req", req)
-
 	log := r.Log.WithValues("req", req)
+
+	// Fetch the Cluster.
+	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, kubeforceMachine.ObjectMeta)
+	if err != nil {
+		log.Info("KubeforceMachine owner Machine is missing cluster label or cluster does not exist")
+		return ctrl.Result{}, err
+	}
+
+	log = log.WithValues("cluster", cluster.Name)
+
+	// Return early if the object or Cluster is paused.
+	if annotations.IsPaused(cluster, kubeforceMachine) {
+		log.Info("Reconciliation is paused for this object")
+		return ctrl.Result{}, nil
+	}
 	// Initialize the patch helper
 	patchHelper, err := patch.NewHelper(kubeforceMachine, r.Client)
 	if err != nil {
@@ -103,25 +117,8 @@ func (r *KubeforceMachineReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return r.reconcileDelete(ctx, kubeforceMachine)
 	}
 
-	if !controllerutil.ContainsFinalizer(kubeforceMachine, infrav1.MachineFinalizer) ||
-		!controllerutil.ContainsFinalizer(kubeforceMachine, metav1.FinalizerDeleteDependents) {
+	if !controllerutil.ContainsFinalizer(kubeforceMachine, infrav1.MachineFinalizer) {
 		controllerutil.AddFinalizer(kubeforceMachine, infrav1.MachineFinalizer)
-		controllerutil.AddFinalizer(kubeforceMachine, metav1.FinalizerDeleteDependents)
-		return ctrl.Result{}, nil
-	}
-
-	// Fetch the Cluster.
-	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, kubeforceMachine.ObjectMeta)
-	if err != nil {
-		log.Info("KubeforceMachine owner Machine is missing cluster label or cluster does not exist")
-		return ctrl.Result{}, err
-	}
-
-	log = log.WithValues("cluster", cluster.Name)
-
-	// Return early if the object or Cluster is paused.
-	if annotations.IsPaused(cluster, kubeforceMachine) {
-		log.Info("Reconciliation is paused for this object")
 		return ctrl.Result{}, nil
 	}
 
@@ -347,6 +344,7 @@ func (r *KubeforceMachineReconciler) reconcileAgentRef(ctx context.Context, kfMa
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 	kfAgent.Labels[infrav1.AgentMachineLabel] = kfMachine.Name
+	kfAgent.Labels[clusterv1.ClusterLabelName] = kfMachine.Labels[clusterv1.ClusterLabelName]
 	// use optimistic concurrent update here
 	if err := r.Client.Update(ctx, kfAgent); err != nil {
 		conditions.MarkFalse(kfMachine, infrav1.AgentProvisionedCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, err.Error())
@@ -506,6 +504,7 @@ func (r *KubeforceMachineReconciler) reconcileCleaner(ctx context.Context, kfMac
 	}
 
 	delete(kfAgent.Labels, infrav1.AgentMachineLabel)
+	delete(kfAgent.Labels, clusterv1.ClusterLabelName)
 	// use optimistic concurrent update here
 	if err := r.Client.Update(ctx, kfAgent); err != nil {
 		conditions.MarkFalse(kfMachine, infrav1.CleanupPlaybooksCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, err.Error())
@@ -552,6 +551,7 @@ func (r *KubeforceMachineReconciler) reconcileCloudInitPlaybook(ctx context.Cont
 
 func playbookLabelsByMachine(kfMachine *infrav1.KubeforceMachine, role string) map[string]string {
 	return map[string]string{
+		clusterv1.ClusterLabelName:              kfMachine.Labels[clusterv1.ClusterLabelName],
 		infrav1.PlaybookRoleLabelName:           role,
 		infrav1.PlaybookAgentNameLabelName:      kfMachine.Spec.AgentRef.Name,
 		infrav1.PlaybookControllerNameLabelName: kfMachine.Name,
@@ -588,14 +588,7 @@ func (r *KubeforceMachineReconciler) createPlaybook(ctx context.Context, kfMachi
 			Namespace: kfMachine.Namespace,
 			Labels:    playbookLabelsByMachine(kfMachine, role),
 			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion:         infrav1.GroupVersion.String(),
-					Kind:               "KubeforceMachine",
-					Name:               kfMachine.Name,
-					UID:                kfMachine.UID,
-					Controller:         pointer.BoolPtr(true),
-					BlockOwnerDeletion: pointer.BoolPtr(true),
-				},
+				*metav1.NewControllerRef(kfMachine, infrav1.GroupVersion.WithKind("KubeforceMachine")),
 			},
 		},
 		Spec: infrav1.PlaybookSpec{

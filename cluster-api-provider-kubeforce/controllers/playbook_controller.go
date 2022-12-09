@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
+	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -66,6 +67,23 @@ func (r *PlaybookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
+	}
+
+	// Fetch the Cluster.
+	cluster, err := capiutil.GetClusterFromMetadata(ctx, r.Client, playbook.ObjectMeta)
+	if err != nil && errors.Cause(err) != capiutil.ErrNoCluster {
+		log.Error(err, "unable to get cluster for Playbook", "playbook", req)
+		return ctrl.Result{}, err
+	}
+
+	if cluster != nil {
+		log = log.WithValues("cluster", cluster.Name)
+	}
+
+	// Return early if the object or Cluster is paused.
+	if cluster != nil && cluster.Spec.Paused || annotations.HasPaused(playbook) {
+		log.Info("Reconciliation is paused for this object")
+		return ctrl.Result{}, nil
 	}
 
 	// Initialize the patch helper
@@ -126,13 +144,29 @@ func patchPlaybook(ctx context.Context, patchHelper *patch.Helper, playbook *inf
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *PlaybookReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	c, err := ctrl.NewControllerManagedBy(mgr).
 		For(&infrav1.Playbook{}).
 		Watches(
 			&source.Kind{Type: &infrav1.KubeforceAgent{}},
 			handler.EnqueueRequestsFromMapFunc(r.KubeforceAgentToPlaybook),
 		).
-		Complete(r)
+		Build(r)
+	if err != nil {
+		return err
+	}
+	clusterToPlaybooks, err := capiutil.ClusterToObjectsMapper(mgr.GetClient(), &infrav1.PlaybookList{}, mgr.GetScheme())
+	if err != nil {
+		return err
+	}
+	err = c.Watch(
+		&source.Kind{Type: &clusterv1.Cluster{}},
+		handler.EnqueueRequestsFromMapFunc(clusterToPlaybooks),
+		predicates.ClusterUnpaused(r.Log),
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to add Watch for Clusters to controller manager")
+	}
+	return nil
 }
 
 // KubeforceAgentToPlaybook is a handler.ToRequestsFunc to be used to enqueue requests for reconciliation

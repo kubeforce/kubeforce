@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
+	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -66,6 +67,23 @@ func (r *PlaybookDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.R
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
+	}
+
+	// Fetch the Cluster.
+	cluster, err := capiutil.GetClusterFromMetadata(ctx, r.Client, pd.ObjectMeta)
+	if err != nil && errors.Cause(err) != capiutil.ErrNoCluster {
+		log.Error(err, "unable to get cluster for PlaybookDeployment", "playbook", req)
+		return ctrl.Result{}, err
+	}
+
+	if cluster != nil {
+		log = log.WithValues("cluster", cluster.Name)
+	}
+
+	// Return early if the object or Cluster is paused.
+	if cluster != nil && cluster.Spec.Paused || annotations.HasPaused(pd) {
+		log.Info("Reconciliation is paused for this object")
+		return ctrl.Result{}, nil
 	}
 
 	// Initialize the patch helper
@@ -126,13 +144,29 @@ func patchPlaybookDeployment(ctx context.Context, patchHelper *patch.Helper, pla
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *PlaybookDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	c, err := ctrl.NewControllerManagedBy(mgr).
 		For(&infrav1.PlaybookDeployment{}).
 		Watches(
 			&source.Kind{Type: &infrav1.KubeforceAgent{}},
 			handler.EnqueueRequestsFromMapFunc(r.kubeforceAgentToPlaybookDeployments),
 		).
-		Complete(r)
+		Build(r)
+	if err != nil {
+		return err
+	}
+	clusterToPlaybookDeployments, err := capiutil.ClusterToObjectsMapper(mgr.GetClient(), &infrav1.PlaybookDeploymentList{}, mgr.GetScheme())
+	if err != nil {
+		return err
+	}
+	err = c.Watch(
+		&source.Kind{Type: &clusterv1.Cluster{}},
+		handler.EnqueueRequestsFromMapFunc(clusterToPlaybookDeployments),
+		predicates.ClusterUnpaused(r.Log),
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to add Watch for Clusters to controller manager")
+	}
+	return nil
 }
 
 func (r *PlaybookDeploymentReconciler) kubeforceAgentToPlaybookDeployments(o client.Object) []ctrl.Request {

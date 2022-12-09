@@ -222,6 +222,7 @@ func (r *TemplateReconciler) reconcilePlaybook(ctx context.Context, obj infrav1.
 
 func createLabels(obj infrav1.PlaybookControlObject, role string) map[string]string {
 	return map[string]string{
+		clusterv1.ClusterLabelName:              obj.GetLabels()[clusterv1.ClusterLabelName],
 		infrav1.PlaybookRoleLabelName:           role,
 		infrav1.PlaybookAgentNameLabelName:      obj.GetAgent().Name,
 		infrav1.PlaybookControllerNameLabelName: obj.GetName(),
