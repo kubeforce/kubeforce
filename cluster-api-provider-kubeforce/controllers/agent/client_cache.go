@@ -194,19 +194,19 @@ func (c *ClientCache) newClientHolder(ctx context.Context, agentKey client.Objec
 	cacheCtx, cacheCtxCancel := context.WithCancel(ctx)
 
 	// We need to be able to stop the cache's shared informers, so wrap this in a stoppableCache.
-	cache := &stoppableCache{
+	stCache := &stoppableCache{
 		Cache:      remoteCache,
 		cancelFunc: cacheCtxCancel,
 	}
 
 	// Start the cache!!!
-	go cache.Start(cacheCtx) //nolint:errcheck
-	if !cache.WaitForCacheSync(cacheCtx) {
-		return nil, errors.Wrapf(err, "failed waiting for cache for agent %q", agentKey)
+	go stCache.Start(cacheCtx) //nolint:errcheck
+	if !stCache.WaitForCacheSync(cacheCtx) {
+		return nil, errors.Errorf("failed waiting for cache for agent %q", agentKey)
 	}
 
 	delegatingClient, err := client.NewDelegatingClient(client.NewDelegatingClientInput{
-		CacheReader: cache,
+		CacheReader: stCache,
 		Client:      ctrlClient,
 	})
 	if err != nil {
@@ -216,7 +216,7 @@ func (c *ClientCache) newClientHolder(ctx context.Context, agentKey client.Objec
 	return &clientHolder{
 		checksum:  sha256sum,
 		clientSet: clientset,
-		cache:     cache,
+		cache:     stCache,
 		client:    delegatingClient,
 		watches:   sets.NewString(),
 	}, nil

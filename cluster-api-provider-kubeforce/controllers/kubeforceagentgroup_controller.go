@@ -87,8 +87,10 @@ func (r *KubeforceAgentGroupReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	// Add finalizer first if not exist to avoid the race condition between init and delete
-	if !controllerutil.ContainsFinalizer(agentGroup, infrav1.AgentGroupFinalizer) {
+	if !controllerutil.ContainsFinalizer(agentGroup, infrav1.AgentGroupFinalizer) ||
+		!controllerutil.ContainsFinalizer(agentGroup, metav1.FinalizerDeleteDependents) {
 		controllerutil.AddFinalizer(agentGroup, infrav1.AgentGroupFinalizer)
+		controllerutil.AddFinalizer(agentGroup, metav1.FinalizerDeleteDependents)
 		return ctrl.Result{}, nil
 	}
 

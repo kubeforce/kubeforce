@@ -20,6 +20,8 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/pkg/errors"
+
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -53,6 +55,9 @@ func (h *agentProbeHandler) DoProbe(ctx context.Context) (bool, error) {
 	clientset, err := h.agentClientCache.GetClientSet(ctx, h.key)
 	if err != nil {
 		return true, err
+	}
+	if clientset == nil {
+		return true, errors.Errorf("unable to get ClientSet for agent %v", h.key)
 	}
 	_, err = clientset.Discovery().ServerVersion()
 	if err != nil {

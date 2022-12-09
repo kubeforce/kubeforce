@@ -22,6 +22,8 @@ import (
 	"os"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
 	certutil "github.com/cert-manager/cert-manager/pkg/api/util"
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
@@ -31,7 +33,9 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util"
 	capiutil "sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
@@ -80,7 +84,25 @@ func (r *KubeforceAgentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	log = log.WithValues("agent", kfAgent.Name)
+	log = log.WithValues("agent", client.ObjectKeyFromObject(kfAgent))
+
+	// Fetch the Cluster.
+	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, kfAgent.ObjectMeta)
+	if err != nil && errors.Cause(err) != util.ErrNoCluster {
+		log.Error(err, "unable to get cluster for KubeforceAgent", "playbook", req)
+		return ctrl.Result{}, err
+	}
+
+	if cluster != nil {
+		log = log.WithValues("cluster", cluster.Name)
+	}
+
+	// Return early if the object or Cluster is paused.
+	if cluster != nil && cluster.Spec.Paused || annotations.HasPaused(kfAgent) {
+		log.Info("Reconciliation is paused for this object")
+		return ctrl.Result{}, nil
+	}
+	ctx = ctrl.LoggerInto(ctx, log)
 
 	// Initialize the patch helper
 	patchHelper, err := patch.NewHelper(kfAgent, r.Client)
@@ -128,17 +150,12 @@ func (r *KubeforceAgentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	// Add foregroundDeletion finalizer to KubeforceAgent
-	if !controllerutil.ContainsFinalizer(kfAgent, metav1.FinalizerDeleteDependents) {
-		controllerutil.AddFinalizer(kfAgent, metav1.FinalizerDeleteDependents)
-	}
-
 	return r.reconcileNormal(ctx, kfAgent)
 }
 
 // SetupWithManager will add watches for this controller.
 func (r *KubeforceAgentReconciler) SetupWithManager(logger logr.Logger, mgr ctrl.Manager, options controller.Options) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	c, err := ctrl.NewControllerManagedBy(mgr).
 		For(&infrav1.KubeforceAgent{}).
 		WithOptions(options).
 		WithEventFilter(predicates.ResourceNotPaused(logger)).
@@ -150,7 +167,23 @@ func (r *KubeforceAgentReconciler) SetupWithManager(logger logr.Logger, mgr ctrl
 			&source.Kind{Type: &certv1.Certificate{}},
 			&handler.EnqueueRequestForOwner{OwnerType: &infrav1.KubeforceAgent{}},
 		).
-		Complete(r)
+		Build(r)
+	if err != nil {
+		return err
+	}
+	clusterToAgents, err := util.ClusterToObjectsMapper(mgr.GetClient(), &infrav1.KubeforceAgentList{}, mgr.GetScheme())
+	if err != nil {
+		return err
+	}
+	err = c.Watch(
+		&source.Kind{Type: &clusterv1.Cluster{}},
+		handler.EnqueueRequestsFromMapFunc(clusterToAgents),
+		predicates.ClusterUnpaused(logger),
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to add Watch for Clusters to controller manager")
+	}
+	return nil
 }
 
 func (r *KubeforceAgentReconciler) reconcilePhase(_ context.Context, a *infrav1.KubeforceAgent) {
@@ -187,30 +220,87 @@ func (r *KubeforceAgentReconciler) reconcileDelete(ctx context.Context, kfAgent 
 	if !controllerutil.ContainsFinalizer(kfAgent, infrav1.AgentFinalizer) {
 		return ctrl.Result{}, nil
 	}
-	obj, err := r.reconcileDeleteMachine(ctx, kfAgent)
+	log := ctrl.LoggerFrom(ctx)
+
+	kfMachine, err := r.reconcileDeleteMachine(ctx, kfAgent)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if obj == nil {
-		if agent.IsHealthy(kfAgent) {
-			objectKey := client.ObjectKeyFromObject(kfAgent)
-			clientset, err := r.AgentClientCache.GetClientSet(ctx, objectKey)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-			err = clientset.RESTClient().Delete().
-				AbsPath("uninstall").
-				Do(ctx).
-				Error()
-			if err != nil {
-				ctrl.LoggerFrom(ctx).Error(err, "unable to uninstall the agent from the machine")
-				return ctrl.Result{}, err
-			}
-		}
-		r.ProbeController.RemoveProbe(client.ObjectKeyFromObject(kfAgent).String())
-		controllerutil.RemoveFinalizer(kfAgent, infrav1.AgentFinalizer)
+	if kfMachine != nil {
+		return ctrl.Result{}, nil
 	}
+	playbooks, err := r.getPlaybooks(ctx, kfAgent.Namespace, kfAgent.Name)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrapf(err,
+			"unable to list Playbooks part of KubeforceAgent %s/%s", kfAgent.Namespace, kfAgent.Name)
+	}
+	if len(playbooks) > 0 {
+		log.Info("Waiting for Playbooks to be deleted", "count", len(playbooks))
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+	}
+
+	pds, err := r.getPlaybookDeployments(ctx, kfAgent.Namespace, kfAgent.Name)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrapf(err,
+			"unable to list PlaybookDeployments part of KubeforceAgent %s/%s", kfAgent.Namespace, kfAgent.Name)
+	}
+
+	if len(pds) > 0 {
+		log.Info("Waiting for PlaybookDeployments to be deleted", "count", len(pds))
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+	}
+
+	if agent.IsHealthy(kfAgent) {
+		objectKey := client.ObjectKeyFromObject(kfAgent)
+		clientset, err := r.AgentClientCache.GetClientSet(ctx, objectKey)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		err = clientset.RESTClient().Delete().
+			AbsPath("uninstall").
+			Do(ctx).
+			Error()
+		if err != nil {
+			log.Error(err, "unable to uninstall the agent from the machine")
+			return ctrl.Result{}, err
+		}
+	}
+	r.ProbeController.RemoveProbe(client.ObjectKeyFromObject(kfAgent).String())
+	controllerutil.RemoveFinalizer(kfAgent, infrav1.AgentFinalizer)
+
 	return ctrl.Result{}, nil
+}
+
+func (r *KubeforceAgentReconciler) getPlaybooks(ctx context.Context, namespace, agentName string) ([]infrav1.Playbook, error) {
+	ml := &infrav1.PlaybookList{}
+	if err := r.Client.List(
+		ctx,
+		ml,
+		client.InNamespace(namespace),
+		client.MatchingLabels{
+			infrav1.PlaybookAgentNameLabelName: agentName,
+		},
+	); err != nil {
+		return nil, errors.Wrap(err, "failed to list PlaybookList")
+	}
+
+	return ml.Items, nil
+}
+
+func (r *KubeforceAgentReconciler) getPlaybookDeployments(ctx context.Context, namespace, agentName string) ([]infrav1.PlaybookDeployment, error) {
+	ml := &infrav1.PlaybookDeploymentList{}
+	if err := r.Client.List(
+		ctx,
+		ml,
+		client.InNamespace(namespace),
+		client.MatchingLabels{
+			infrav1.PlaybookAgentNameLabelName: agentName,
+		},
+	); err != nil {
+		return nil, errors.Wrap(err, "failed to list PlaybookDeploymentList")
+	}
+
+	return ml.Items, nil
 }
 
 // reconcileDeleteExternal tries to delete external references.
@@ -231,6 +321,10 @@ func (r *KubeforceAgentReconciler) reconcileDeleteMachine(ctx context.Context, k
 			return nil, nil
 		}
 		return nil, errors.Wrapf(err, "failed to get KubeforceMachine %q", key)
+	}
+
+	if !kfMachine.DeletionTimestamp.IsZero() {
+		return kfMachine, nil
 	}
 
 	if err := r.Client.Delete(ctx, kfMachine); err != nil {

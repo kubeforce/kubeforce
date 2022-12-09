@@ -20,12 +20,14 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
@@ -35,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
@@ -78,6 +81,12 @@ func (r *KubeforceClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	log = log.WithValues("cluster", cluster.Name)
 
+	// Return early if the object or Cluster is paused.
+	if annotations.IsPaused(cluster, kubeforceCluster) {
+		log.Info("Reconciliation is paused for this object")
+		return ctrl.Result{}, nil
+	}
+
 	// Initialize the patch helper
 	patchHelper, err := patch.NewHelper(kubeforceCluster, r.Client)
 	if err != nil {
@@ -101,7 +110,7 @@ func (r *KubeforceClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Handle deleted clusters
 	if !kubeforceCluster.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, kubeforceCluster)
+		return r.reconcileDelete(ctx, cluster, kubeforceCluster)
 	}
 
 	// Handle non-deleted clusters
@@ -259,22 +268,47 @@ func (r *KubeforceClusterReconciler) refreshAPIServers(_ context.Context, cluste
 	cluster.Status.APIServers = apiServers
 }
 
-func (r *KubeforceClusterReconciler) reconcileDelete(ctx context.Context, kubeforceCluster *infrav1.KubeforceCluster) (ctrl.Result, error) {
-	// Set the LoadBalancerAvailableCondition reporting delete is started, and issue a patch in order to make
-	// this visible to the users.
-	patchHelper, err := patch.NewHelper(kubeforceCluster, r.Client)
+func (r *KubeforceClusterReconciler) reconcileDelete(ctx context.Context, cluster *clusterv1.Cluster, kfCluster *infrav1.KubeforceCluster) (ctrl.Result, error) {
+	patchHelper, err := patch.NewHelper(kfCluster, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	conditions.MarkFalse(kubeforceCluster, infrav1.InfrastructureAvailableCondition, clusterv1.DeletingReason, clusterv1.ConditionSeverityInfo, "")
-	if err := patchKubeforceCluster(ctx, patchHelper, kubeforceCluster); err != nil {
+	conditions.MarkFalse(kfCluster, infrav1.InfrastructureAvailableCondition, clusterv1.DeletingReason, clusterv1.ConditionSeverityInfo, "")
+	if err := patchKubeforceCluster(ctx, patchHelper, kfCluster); err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "failed to patch KubeforceCluster")
 	}
 
+	kfMachines, err := r.getKubeforceMachinesInCluster(ctx, cluster.Namespace, cluster.Name)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrapf(err,
+			"unable to list KubeforceMachines part of KubeforceCluster %s/%s", kfCluster.Namespace, kfCluster.Name)
+	}
+
+	if len(kfMachines) > 0 {
+		r.Log.Info("Waiting for KubeforceMachines to be deleted", "count", len(kfMachines))
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+	}
+
 	// Cluster is deleted so remove the finalizer.
-	controllerutil.RemoveFinalizer(kubeforceCluster, infrav1.ClusterFinalizer)
+	controllerutil.RemoveFinalizer(kfCluster, infrav1.ClusterFinalizer)
 
 	return ctrl.Result{}, nil
+}
+
+func (r *KubeforceClusterReconciler) getKubeforceMachinesInCluster(ctx context.Context, namespace, clusterName string) ([]infrav1.KubeforceMachine, error) {
+	ml := &infrav1.KubeforceMachineList{}
+	if err := r.Client.List(
+		ctx,
+		ml,
+		client.InNamespace(namespace),
+		client.MatchingLabels{
+			clusterv1.ClusterLabelName: clusterName,
+		},
+	); err != nil {
+		return nil, errors.Wrap(err, "failed to list KubeforceMachineList")
+	}
+
+	return ml.Items, nil
 }
 
 func (r *KubeforceClusterReconciler) getControlPlaneMachineList(ctx context.Context, cluster *infrav1.KubeforceCluster) ([]infrav1.KubeforceMachine, error) {
