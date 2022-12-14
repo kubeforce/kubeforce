@@ -222,6 +222,7 @@ func (r *KubeforceMachineReconciler) reconcileNormal(ctx context.Context, cluste
 	vars["apiServers"] = r.getAPIServerEndpoints(kubeforceMachine, kubeforceCluster)
 	vars["apiServerPort"] = "6443"
 	vars["targetArch"] = kfAgent.Spec.System.Arch
+	vars["localhostAlias"] = kubeforceCluster.Spec.ControlPlaneEndpoint.Host
 	ready, err := r.TemplateReconciler.Reconcile(ctx, kubeforceMachine, infrav1.TemplateTypeInstall, vars)
 	if err != nil {
 		return ctrl.Result{}, err

@@ -19,6 +19,7 @@ package v1beta1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -60,8 +61,8 @@ func (in *KubeforceMachine) GetAgent() types.NamespacedName {
 }
 
 // GetTemplates returns the map of TemplateReferences.
-func (in *KubeforceMachine) GetTemplates() map[string]*TemplateReference {
-	return in.Spec.TemplateReferences
+func (in *KubeforceMachine) GetTemplates() *PlaybookTemplates {
+	return in.Spec.PlaybookTemplates
 }
 
 // GetPlaybookConditions returns conditions of playbooks.
@@ -89,11 +90,23 @@ type KubeforceMachineSpec struct {
 	// will find free agent by this selector and update agentRef field.
 	AgentSelector *metav1.LabelSelector `json:"agentSelector,omitempty"`
 
-	// TemplateReferences are references to PlaybookTemplate or PlaybookDeploymentTemplate that the KubeforceMachine should manage.
+	// PlaybookTemplates describes playbookTemplates that are managed by the KubeforceMachine.
+	PlaybookTemplates *PlaybookTemplates `json:"playbookTemplates,omitempty"`
+}
+
+// PlaybookTemplates is a set of references to a PlaybookTemplate or PlaybookDeploymentTemplate.
+type PlaybookTemplates struct {
+	// References are references to PlaybookTemplate or PlaybookDeploymentTemplate that are managed.
 	// KubeforceMachine has predifined roles "init", "loadblanacer", "cleanup".
 	// If these predefined TemplateReferences have not been specified by users, they will be created automatically.
 	// +optional
-	TemplateReferences map[string]*TemplateReference `json:"templateReferences,omitempty"`
+	References map[string]*TemplateReference `json:"refs,omitempty"`
+
+	// Variables are additional variables that are used to create the Playbook and PlaybookDeployment.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	Variables map[string]runtime.RawExtension `json:"variables,omitempty"`
 }
 
 // TemplateReference is the reference to the PlaybookTemplate or PlaybookDeploymentTemplate.

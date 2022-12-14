@@ -14,6 +14,8 @@ services:
     volumes:
     - /var
     - /lib/modules:/lib/modules:ro
+    extra_hosts:
+      - "sample.default.svc:127.0.0.1"
   worker:
     deploy:
       replicas: 3
@@ -28,6 +30,8 @@ services:
     volumes:
       - /var
       - /lib/modules:/lib/modules:ro
+    extra_hosts:
+      - "sample.default.svc:127.0.0.1"
     depends_on:
       - controlplane
 networks:

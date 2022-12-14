@@ -59,36 +59,44 @@ func (webhook *KubeforceMachine) Default(ctx context.Context, obj runtime.Object
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a KubeforceMachine but got a %T", obj))
 	}
-	if in.Spec.TemplateReferences == nil {
-		in.Spec.TemplateReferences = make(map[string]*infrav1.TemplateReference)
+	if in.Spec.PlaybookTemplates == nil {
+		in.Spec.PlaybookTemplates = &infrav1.PlaybookTemplates{}
 	}
+	if in.Spec.PlaybookTemplates.References == nil {
+		in.Spec.PlaybookTemplates.References = make(map[string]*infrav1.TemplateReference)
+	}
+	webhook.defaultTemplateReferences(in.Spec.PlaybookTemplates.References)
+	return nil
+}
+
+func (webhook *KubeforceMachine) defaultTemplateReferences(refs map[string]*infrav1.TemplateReference) {
 	initRole := string(assets.PlaybookInstaller)
-	if in.Spec.TemplateReferences[initRole] == nil {
-		in.Spec.TemplateReferences[initRole] = &infrav1.TemplateReference{
+	if refs[initRole] == nil {
+		refs[initRole] = &infrav1.TemplateReference{
 			Kind:       "PlaybookTemplate",
 			Namespace:  infrav1.KubeforceSystemNamespace,
 			Name:       utiltmpl.GetName(assets.PlaybookInstaller),
 			APIVersion: infrav1.GroupVersion.String(),
 		}
 	}
-	in.Spec.TemplateReferences[initRole].Priority = 1000
-	in.Spec.TemplateReferences[initRole].Type = infrav1.TemplateTypeInstall
+	refs[initRole].Priority = 1000
+	refs[initRole].Type = infrav1.TemplateTypeInstall
 
 	lbRole := string(assets.PlaybookLoadbalancer)
-	if in.Spec.TemplateReferences[lbRole] == nil {
-		in.Spec.TemplateReferences[lbRole] = &infrav1.TemplateReference{
+	if refs[lbRole] == nil {
+		refs[lbRole] = &infrav1.TemplateReference{
 			Kind:       "PlaybookDeploymentTemplate",
 			Namespace:  infrav1.KubeforceSystemNamespace,
 			Name:       utiltmpl.GetName(assets.PlaybookLoadbalancer),
 			APIVersion: infrav1.GroupVersion.String(),
 		}
 	}
-	in.Spec.TemplateReferences[lbRole].Priority = 100
-	in.Spec.TemplateReferences[lbRole].Type = infrav1.TemplateTypeInstall
+	refs[lbRole].Priority = 100
+	refs[lbRole].Type = infrav1.TemplateTypeInstall
 
 	cleanerRole := string(assets.PlaybookCleaner)
-	if in.Spec.TemplateReferences[cleanerRole] == nil {
-		in.Spec.TemplateReferences[cleanerRole] = &infrav1.TemplateReference{
+	if refs[cleanerRole] == nil {
+		refs[cleanerRole] = &infrav1.TemplateReference{
 			Kind:       "PlaybookTemplate",
 			Namespace:  infrav1.KubeforceSystemNamespace,
 			Name:       utiltmpl.GetName(assets.PlaybookCleaner),
@@ -96,9 +104,8 @@ func (webhook *KubeforceMachine) Default(ctx context.Context, obj runtime.Object
 		}
 	}
 
-	in.Spec.TemplateReferences[cleanerRole].Priority = 1000
-	in.Spec.TemplateReferences[cleanerRole].Type = infrav1.TemplateTypeDelete
-	return nil
+	refs[cleanerRole].Priority = 1000
+	refs[cleanerRole].Type = infrav1.TemplateTypeDelete
 }
 
 // ValidateCreate implements webhook.CustomValidator.
@@ -138,8 +145,12 @@ func (webhook *KubeforceMachine) validate(ctx context.Context, m *infrav1.Kubefo
 	allErrs := field.ErrorList{}
 	specPath := field.NewPath("spec")
 
-	for key, ref := range m.Spec.TemplateReferences {
-		refPath := specPath.Child("templateReferences", key)
+	if m.Spec.PlaybookTemplates == nil {
+		return nil
+	}
+
+	for key, ref := range m.Spec.PlaybookTemplates.References {
+		refPath := specPath.Child("playbookTemplates", "references", key)
 		if err := webhook.validateTemplateReferences(ctx, refPath, ref); err != nil {
 			allErrs = append(allErrs, err)
 		}

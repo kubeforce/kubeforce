@@ -28,7 +28,7 @@ import (
 type PlaybookControlObject interface {
 	client.Object
 	GetAgent() types.NamespacedName
-	GetTemplates() map[string]*TemplateReference
+	GetTemplates() *PlaybookTemplates
 	GetConditions() clusterv1.Conditions
 	SetConditions(conditions clusterv1.Conditions)
 	GetPlaybookConditions() PlaybookConditions

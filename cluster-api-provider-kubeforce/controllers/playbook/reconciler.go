@@ -27,6 +27,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage/names"
 	"k8s.io/utils/pointer"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -47,6 +48,9 @@ type TemplateReconciler struct {
 
 // Reconcile reconciles playbooks controlled by the PlaybookControlObject.
 func (r *TemplateReconciler) Reconcile(ctx context.Context, obj infrav1.PlaybookControlObject, templateType infrav1.TemplateType, vars map[string]interface{}) (bool, error) {
+	if obj.GetTemplates() == nil {
+		return true, nil
+	}
 	// to avoid duplication, new playbooks should be added to the status immediately
 	patchHelper, err := patch.NewHelper(obj, r.Client)
 	if err != nil {
@@ -68,7 +72,8 @@ func (r *TemplateReconciler) Reconcile(ctx context.Context, obj infrav1.Playbook
 	default:
 		return false, errors.Errorf("unsupported templateType %q", templateType)
 	}
-	references := r.getReferences(obj.GetTemplates(), templateType)
+	references := r.getReferences(obj.GetTemplates().References, templateType)
+	vars = r.mergeVars(vars, obj.GetTemplates().Variables)
 	for _, ref := range references {
 		ready, err := r.reconcileReference(ctx, obj, ref, vars)
 		if err != nil {
@@ -83,6 +88,20 @@ func (r *TemplateReconciler) Reconcile(ctx context.Context, obj infrav1.Playbook
 	}
 	conditions.MarkTrue(obj, condType)
 	return true, err
+}
+
+func (r *TemplateReconciler) mergeVars(vars1 map[string]interface{}, vars2 map[string]runtime.RawExtension) map[string]interface{} {
+	if len(vars2) == 0 {
+		return vars1
+	}
+	result := make(map[string]interface{})
+	for k, v := range vars1 {
+		result[k] = v
+	}
+	for k, v := range vars2 {
+		result[k] = v
+	}
+	return result
 }
 
 func (r *TemplateReconciler) reconcileReference(ctx context.Context, obj infrav1.PlaybookControlObject, ref reference, vars map[string]interface{}) (bool, error) {

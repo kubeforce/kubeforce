@@ -208,6 +208,10 @@ spec:
       agentSelector:
         matchLabels:
           role: master
+      playbookTemplates:
+        variables:
+          # we cannot change /etc/hosts in docker containers
+          localhostAlias: ""
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
 kind: KubeadmControlPlane
@@ -224,6 +228,7 @@ spec:
       apiServer:
         certSANs:
           - localhost
+          - sample.default.svc
           - 127.0.0.1
           - 172.18.0.4
           - 172.18.0.5
@@ -258,7 +263,7 @@ spec:
       name: sample-control-plane
       namespace: default
   replicas: 3
-  version: v1.23.1
+  version: v1.23.14
 ---
 ### WORKERS
 ---
@@ -340,6 +345,10 @@ spec:
       agentSelector:
         matchLabels:
           role: worker
+      playbookTemplates:
+        variables:
+          # we cannot change /etc/hosts in docker containers
+          localhostAlias: ""
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate
@@ -388,6 +397,7 @@ spec:
         kind: KubeforceMachineTemplate
         name: sample-workers
         namespace: default
-      version: v1.22.3
+      version: v1.23.14
 ---
+#kubectl patch cluster sample --type merge -p '{"spec":{"paused": true}}'
 #kubectl apply -f https://projectcalico.docs.tigera.io/manifests/calico.yaml

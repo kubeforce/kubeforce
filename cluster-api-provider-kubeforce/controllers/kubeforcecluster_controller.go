@@ -17,14 +17,22 @@ limitations under the License.
 package controllers
 
 import (
+	"bytes"
 	"context"
+	_ "embed"
 	"fmt"
 	"sort"
+	"strings"
+	"text/template"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
@@ -41,7 +49,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/agent"
+	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/names"
+	patchutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/patch"
 	stringutil "k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util/strings"
 )
 
@@ -55,6 +64,8 @@ type KubeforceClusterReconciler struct {
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=kubeforceclusters/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=kubeforceclusters/finalizers,verbs=update
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters;clusters/status,verbs=get;list;update;patch;watch
+//+kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop.
 func (r *KubeforceClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, rerr error) {
@@ -139,21 +150,29 @@ func patchKubeforceCluster(ctx context.Context, patchHelper *patch.Helper, kubef
 }
 
 func (r *KubeforceClusterReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster, kubeforceCluster *infrav1.KubeforceCluster) (ctrl.Result, error) {
-	kubeforceCluster.Status.Ready = true
-	conditions.MarkTrue(kubeforceCluster, infrav1.InfrastructureAvailableCondition)
 	machines, err := r.getControlPlaneMachineList(ctx, kubeforceCluster)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	r.refreshAPIServers(ctx, kubeforceCluster, machines)
-	if err := r.reconcileControlPlaneEndpoint(ctx, cluster, kubeforceCluster, machines); err != nil {
+	if err := r.reconcileLBConfigMap(ctx, cluster, machines, kubeforceCluster); err != nil {
 		return ctrl.Result{}, err
 	}
-
+	if err := r.reconcileLBDeployment(ctx, cluster, kubeforceCluster); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := r.reconcileLBService(ctx, cluster, kubeforceCluster); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := r.reconcileControlPlaneEndpoint(ctx, cluster, kubeforceCluster); err != nil {
+		return ctrl.Result{}, err
+	}
+	kubeforceCluster.Status.Ready = true
+	conditions.MarkTrue(kubeforceCluster, infrav1.InfrastructureAvailableCondition)
 	return ctrl.Result{}, nil
 }
 
-func (r *KubeforceClusterReconciler) getExternalAddress(ctx context.Context, machines []infrav1.KubeforceMachine) ([]string, error) {
+func (r *KubeforceClusterReconciler) getExternalAddresses(ctx context.Context, machines []infrav1.KubeforceMachine) ([]string, error) {
 	adresses := make([]string, 0, len(machines))
 	for _, kfMachine := range machines {
 		if kfMachine.Spec.AgentRef != nil {
@@ -167,38 +186,305 @@ func (r *KubeforceClusterReconciler) getExternalAddress(ctx context.Context, mac
 				}
 				return nil, errors.Wrapf(err, "unable to get agent for machine %s", kfMachine.Name)
 			}
-			if agent.IsHealthy(kfAgent) {
-				address := stringutil.Find(stringutil.IsNotEmpty, kfAgent.Spec.Addresses.ExternalDNS, kfAgent.Spec.Addresses.ExternalIP)
-				adresses = append(adresses, address)
-			}
+			address := stringutil.Find(stringutil.IsNotEmpty, kfAgent.Spec.Addresses.ExternalDNS, kfAgent.Spec.Addresses.ExternalIP)
+			adresses = append(adresses, address)
 		}
 	}
 	return adresses, nil
 }
 
+func (r *KubeforceClusterReconciler) reconcileLBDeployment(ctx context.Context, cluster *clusterv1.Cluster,
+	kubeforceCluster *infrav1.KubeforceCluster) error {
+	key := client.ObjectKey{
+		Namespace: cluster.Namespace,
+		Name:      cluster.Name,
+	}
+	d := &appsv1.Deployment{}
+	created := true
+	err := r.Client.Get(ctx, key, d)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			created = false
+		} else {
+			return err
+		}
+	}
+	patchObj := client.MergeFrom(d.DeepCopy())
+	d.Name = key.Name
+	d.Namespace = key.Namespace
+	r.fillLBDeployment(d, kubeforceCluster, cluster)
+	if !created {
+		if err := r.Client.Create(ctx, d); err != nil {
+			return err
+		}
+		return nil
+	}
+	changed, err := patchutil.HasChanges(patchObj, d)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	if changed {
+		r.Log.Info("updating loadbalancer Deployment", "key", key)
+		err := r.Client.Patch(ctx, d, patchObj)
+		if err != nil {
+			return errors.Wrapf(err, "failed to patch Deployment")
+		}
+	}
+	return nil
+}
+
+func (r *KubeforceClusterReconciler) reconcileLBConfigMap(ctx context.Context, cluster *clusterv1.Cluster,
+	controlPlaneMachines []infrav1.KubeforceMachine, kubeforceCluster *infrav1.KubeforceCluster) error {
+	key := client.ObjectKey{
+		Namespace: cluster.Namespace,
+		Name:      r.lbConfigName(cluster.Name),
+	}
+	cm := &corev1.ConfigMap{}
+	created := true
+	err := r.Client.Get(ctx, key, cm)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			created = false
+		} else {
+			return err
+		}
+	}
+	patchObj := client.MergeFrom(cm.DeepCopy())
+	cm.Name = key.Name
+	cm.Namespace = key.Namespace
+	if err := r.fillLBConfigMap(ctx, cm, controlPlaneMachines, cluster, kubeforceCluster); err != nil {
+		return err
+	}
+	if !created {
+		if err := r.Client.Create(ctx, cm); err != nil {
+			return err
+		}
+		return nil
+	}
+	changed, err := patchutil.HasChanges(patchObj, cm)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	if changed {
+		r.Log.Info("updating loadbalancer ConfigMap", "key", key)
+		err := r.Client.Patch(ctx, cm, patchObj)
+		if err != nil {
+			return errors.Wrapf(err, "failed to patch ConfigMap")
+		}
+	}
+	return nil
+}
+
+func (r *KubeforceClusterReconciler) reconcileLBService(ctx context.Context, cluster *clusterv1.Cluster,
+	kubeforceCluster *infrav1.KubeforceCluster) error {
+	key := client.ObjectKey{
+		Namespace: cluster.Namespace,
+		Name:      cluster.Name,
+	}
+	svc := &corev1.Service{}
+	created := true
+	err := r.Client.Get(ctx, key, svc)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			created = false
+		} else {
+			return err
+		}
+	}
+	patchObj := client.MergeFrom(svc.DeepCopy())
+	svc.Name = key.Name
+	svc.Namespace = key.Namespace
+	r.fillLBService(svc, cluster, kubeforceCluster)
+	if !created {
+		if err := r.Client.Create(ctx, svc); err != nil {
+			return err
+		}
+		return nil
+	}
+	changed, err := patchutil.HasChanges(patchObj, svc)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	if changed {
+		r.Log.Info("updating loadbalancer Service", "key", key)
+		err := r.Client.Patch(ctx, svc, patchObj)
+		if err != nil {
+			return errors.Wrapf(err, "failed to patch Service")
+		}
+	}
+	return nil
+}
+
+//go:embed traefik.yaml
+var traefikConfig string
+
+var traefikConfigTmpl = template.Must(template.New("config").Parse(traefikConfig))
+
+func (r *KubeforceClusterReconciler) fillLBConfigMap(ctx context.Context, cm *corev1.ConfigMap,
+	controlPlaneMachines []infrav1.KubeforceMachine, cluster *clusterv1.Cluster, kubeforceCluster *infrav1.KubeforceCluster) error {
+	buf := &bytes.Buffer{}
+	externalAddress, err := r.getExternalAddresses(ctx, controlPlaneMachines)
+	if err != nil {
+		return err
+	}
+	if err := traefikConfigTmpl.Execute(buf, map[string]interface{}{
+		"apiServers": externalAddress,
+	}); err != nil {
+		return err
+	}
+	cm.OwnerReferences = []metav1.OwnerReference{
+		*metav1.NewControllerRef(kubeforceCluster, infrav1.GroupVersion.WithKind("KubeforceCluster")),
+	}
+	cm.Labels = r.lbLabels(cluster.Name)
+	cm.Data = map[string]string{
+		"traefik.yaml": buf.String(),
+	}
+	return nil
+}
+func (r *KubeforceClusterReconciler) fillLBService(svc *corev1.Service, cluster *clusterv1.Cluster, kubeforceCluster *infrav1.KubeforceCluster) {
+	svc.OwnerReferences = []metav1.OwnerReference{
+		*metav1.NewControllerRef(kubeforceCluster, infrav1.GroupVersion.WithKind("KubeforceCluster")),
+	}
+	svc.Labels = r.lbLabels(cluster.Name)
+	svc.Spec.Type = corev1.ServiceTypeClusterIP
+	svc.Spec.Selector = r.lbLabels(cluster.Name)
+	svc.Spec.Ports = []corev1.ServicePort{
+		{
+			Name:       "tcp",
+			Protocol:   corev1.ProtocolTCP,
+			Port:       9443,
+			TargetPort: intstr.FromString("tcp"),
+		},
+	}
+}
+
+func (r *KubeforceClusterReconciler) fillLBDeployment(d *appsv1.Deployment,
+	kubeforceCluster *infrav1.KubeforceCluster, cluster *clusterv1.Cluster) {
+	d.OwnerReferences = []metav1.OwnerReference{
+		*metav1.NewControllerRef(kubeforceCluster, infrav1.GroupVersion.WithKind("KubeforceCluster")),
+	}
+	d.Labels = r.lbLabels(cluster.Name)
+	d.Spec.Template.ObjectMeta.Labels = r.lbLabels(cluster.Name)
+	d.Spec.Selector = &metav1.LabelSelector{
+		MatchLabels: r.lbLabels(cluster.Name),
+	}
+	d.Spec.Template.Spec.Containers = []corev1.Container{
+		{
+			Name:  "traefik",
+			Image: "traefik:v2.9.6",
+			Args: []string{
+				"--log.level=DEBUG",
+				"--entrypoints.controlplane=true",
+				"--entrypoints.controlplane.address=:9443",
+				"--entrypoints.controlplane.transport.lifecycle.gracetimeout=10s",
+				"--entrypoints.controlplane.transport.respondingtimeouts.readtimeout=10s",
+				"--entrypoints.controlplane.transport.respondingtimeouts.idletimeout=10s",
+				"--entrypoints.controlplane.transport.respondingtimeouts.writetimeout=10s",
+				"--entrypoints.ping=true",
+				"--entrypoints.ping.address=:9001",
+				"--ping=true",
+				"--ping.entrypoint=ping",
+				"--providers.file.watch=true",
+				"--providers.file.debugloggeneratedtemplate=true",
+				"--providers.file.directory=/etc/traefik/dynamic_conf/",
+			},
+			Ports: []corev1.ContainerPort{
+				{
+					Name:          "tcp",
+					ContainerPort: 9443,
+					Protocol:      "TCP",
+				},
+			},
+			Resources: corev1.ResourceRequirements{},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "config",
+					ReadOnly:  true,
+					MountPath: "/etc/traefik/dynamic_conf/",
+				},
+			},
+			LivenessProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path:   "/ping",
+						Port:   intstr.FromInt(9001),
+						Scheme: corev1.URISchemeHTTP,
+					},
+				},
+				InitialDelaySeconds: 2,
+				TimeoutSeconds:      2,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    3,
+			},
+			ReadinessProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path:   "/ping",
+						Port:   intstr.FromInt(9001),
+						Scheme: corev1.URISchemeHTTP,
+					},
+				},
+				InitialDelaySeconds: 2,
+				TimeoutSeconds:      2,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    1,
+			},
+			ImagePullPolicy: corev1.PullIfNotPresent,
+		},
+	}
+	d.Spec.Template.Spec.Volumes = []corev1.Volume{
+		{
+			Name: "config",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: r.lbConfigName(cluster.Name),
+					},
+				},
+			},
+		},
+	}
+}
+
+func (r *KubeforceClusterReconciler) lbLabels(clusterName string) map[string]string {
+	return map[string]string{
+		clusterv1.ClusterLabelName:    clusterName,
+		"app.kubernetes.io/name":      "traefik",
+		"app.kubernetes.io/component": "loadbalancer",
+	}
+}
+
+func (r *KubeforceClusterReconciler) lbConfigName(clusterName string) string {
+	return names.BuildName(clusterName, "-lb-config")
+}
+
 func (r *KubeforceClusterReconciler) reconcileControlPlaneEndpoint(ctx context.Context, cluster *clusterv1.Cluster,
-	kubeforceCluster *infrav1.KubeforceCluster, controlPlaneMachines []infrav1.KubeforceMachine) error {
-	patchHelper, err := patch.NewHelper(kubeforceCluster, r.Client)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	updatedEndpoint, err := r.refreshControlPlaneEndpoint(ctx, kubeforceCluster, controlPlaneMachines)
-	if err != nil {
-		return errors.WithStack(err)
-	}
+	kubeforceCluster *infrav1.KubeforceCluster) error {
+	patchObj := client.MergeFrom(kubeforceCluster.DeepCopy())
+	apiserver := strings.Join([]string{cluster.Name, cluster.Namespace, "svc"}, ".")
+	kubeforceCluster.Spec.ControlPlaneEndpoint.Host = apiserver
+	kubeforceCluster.Spec.ControlPlaneEndpoint.Port = 9443
+
 	if !cluster.Spec.ControlPlaneEndpoint.IsValid() {
 		return nil
 	}
+
 	if cluster.Spec.ControlPlaneEndpoint.Host == kubeforceCluster.Spec.ControlPlaneEndpoint.Host &&
 		cluster.Spec.ControlPlaneEndpoint.Port == kubeforceCluster.Spec.ControlPlaneEndpoint.Port {
 		return nil
 	}
-	if updatedEndpoint {
-		if err := patchHelper.Patch(ctx, kubeforceCluster); err != nil {
-			return errors.WithStack(err)
+	changed, err := patchutil.HasChanges(patchObj, kubeforceCluster)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	if changed {
+		if err := r.Client.Patch(ctx, kubeforceCluster, patchObj); err != nil {
+			return errors.Wrapf(err, "failed to patch KubeforceCluster")
 		}
 	}
-
 	// delete ControlPlaneEndpoint in cluster
 	clusterPatchData := client.MergeFrom(cluster.DeepCopy())
 	cluster.Spec.ControlPlaneEndpoint.Port = 0
@@ -225,36 +511,6 @@ func (r *KubeforceClusterReconciler) deleteKubeconfig(ctx context.Context, clust
 		ctrl.LoggerFrom(ctx).Info("kubeconfig has been deleted")
 	}
 	return nil
-}
-
-func (r *KubeforceClusterReconciler) refreshControlPlaneEndpoint(ctx context.Context, cluster *infrav1.KubeforceCluster,
-	controlPlaneMachines []infrav1.KubeforceMachine) (bool, error) {
-	externalAddresses, err := r.getExternalAddress(ctx, controlPlaneMachines)
-	if err != nil {
-		return false, err
-	}
-	for _, address := range externalAddresses {
-		if cluster.Spec.ControlPlaneEndpoint.Host == address {
-			return false, nil
-		}
-	}
-	if len(externalAddresses) == 0 {
-		if !cluster.Spec.ControlPlaneEndpoint.IsValid() {
-			cluster.Spec.ControlPlaneEndpoint = clusterv1.APIEndpoint{
-				Host: "0.0.0.0",
-				Port: 9443,
-			}
-			return true, nil
-		}
-
-		return false, nil
-	}
-	sort.Strings(externalAddresses)
-	cluster.Spec.ControlPlaneEndpoint = clusterv1.APIEndpoint{
-		Host: externalAddresses[0],
-		Port: 9443,
-	}
-	return true, nil
 }
 
 func (r *KubeforceClusterReconciler) refreshAPIServers(_ context.Context, cluster *infrav1.KubeforceCluster, controlPlaneMachines []infrav1.KubeforceMachine) {
