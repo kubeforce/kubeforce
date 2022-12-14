@@ -76,22 +76,24 @@ func TestKubeforceMachineValidateCreate(t *testing.T) {
 				Namespace: "default",
 			},
 			Spec: infrav1.KubeforceMachineSpec{
-				TemplateReferences: map[string]*infrav1.TemplateReference{
-					"init": {
-						Kind:       "PlaybookTemplate",
-						Namespace:  "default",
-						Name:       "init-dev",
-						APIVersion: infrav1.GroupVersion.String(),
-						Priority:   10,
-						Type:       "install",
-					},
-					"boot": {
-						Kind:       "PlaybookDeploymentTemplate",
-						Namespace:  "default",
-						Name:       "boot-dev",
-						APIVersion: infrav1.GroupVersion.String(),
-						Priority:   20,
-						Type:       "install",
+				PlaybookTemplates: &infrav1.PlaybookTemplates{
+					References: map[string]*infrav1.TemplateReference{
+						"init": {
+							Kind:       "PlaybookTemplate",
+							Namespace:  "default",
+							Name:       "init-dev",
+							APIVersion: infrav1.GroupVersion.String(),
+							Priority:   10,
+							Type:       "install",
+						},
+						"boot": {
+							Kind:       "PlaybookDeploymentTemplate",
+							Namespace:  "default",
+							Name:       "boot-dev",
+							APIVersion: infrav1.GroupVersion.String(),
+							Priority:   20,
+							Type:       "install",
+						},
 					},
 				},
 			},
@@ -117,7 +119,7 @@ func TestKubeforceMachineValidateCreate(t *testing.T) {
 		{
 			name: "a priority that is negative should be rejected",
 			kfMachine: getKubeforceMachine(func(ma *infrav1.KubeforceMachine) {
-				ma.Spec.TemplateReferences["init"].Priority = -1
+				ma.Spec.PlaybookTemplates.References["init"].Priority = -1
 			}),
 			extraObjs: []client.Object{pbTmpl, pbDpTmpl},
 			expectErr: true,
@@ -125,7 +127,7 @@ func TestKubeforceMachineValidateCreate(t *testing.T) {
 		{
 			name: "a type that is not supported should be rejected",
 			kfMachine: getKubeforceMachine(func(ma *infrav1.KubeforceMachine) {
-				ma.Spec.TemplateReferences["init"].Type = "unsupported"
+				ma.Spec.PlaybookTemplates.References["init"].Type = "unsupported"
 			}),
 			extraObjs: []client.Object{pbTmpl, pbDpTmpl},
 			expectErr: true,
@@ -133,7 +135,7 @@ func TestKubeforceMachineValidateCreate(t *testing.T) {
 		{
 			name: "a apiVersion that is not supported should be rejected",
 			kfMachine: getKubeforceMachine(func(ma *infrav1.KubeforceMachine) {
-				ma.Spec.TemplateReferences["init"].APIVersion = "v1"
+				ma.Spec.PlaybookTemplates.References["init"].APIVersion = "v1"
 			}),
 			extraObjs: []client.Object{pbTmpl, pbDpTmpl},
 			expectErr: true,
@@ -141,7 +143,7 @@ func TestKubeforceMachineValidateCreate(t *testing.T) {
 		{
 			name: "a kind that is not supported should be rejected",
 			kfMachine: getKubeforceMachine(func(ma *infrav1.KubeforceMachine) {
-				ma.Spec.TemplateReferences["init"].Kind = "Playbook"
+				ma.Spec.PlaybookTemplates.References["init"].Kind = "Playbook"
 			}),
 			extraObjs: []client.Object{pbTmpl, pbDpTmpl},
 			expectErr: true,
@@ -149,7 +151,7 @@ func TestKubeforceMachineValidateCreate(t *testing.T) {
 		{
 			name: "a template reference that does not match the template should be rejected",
 			kfMachine: getKubeforceMachine(func(ma *infrav1.KubeforceMachine) {
-				ma.Spec.TemplateReferences["init"].Name = "nothing"
+				ma.Spec.PlaybookTemplates.References["init"].Name = "nothing"
 			}),
 			extraObjs: []client.Object{pbTmpl, pbDpTmpl},
 			expectErr: true,

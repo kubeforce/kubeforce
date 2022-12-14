@@ -28,7 +28,7 @@ RUN apt-get update && \
     apt-get install --no-install-recommends -y \
     dbus systemd systemd-cron rsyslog iptables iproute2 ebtables \
     python3 python3-apt sudo bash ca-certificates kmod \
-    openssh-server sudo python3-pip \
+    openssh-server sudo python3-pip iputils-ping \
     curl htop iotop lsof ltrace net-tools strace tcpdump vim wget traceroute
 
 # hadolint ignore=DL3013

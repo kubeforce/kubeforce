@@ -110,50 +110,60 @@ spec:
                     type: object
                 type: object
                 x-kubernetes-map-type: atomic
+              playbookTemplates:
+                description: PlaybookTemplates describes playbookTemplates that are
+                  managed by the KubeforceMachine.
+                properties:
+                  refs:
+                    additionalProperties:
+                      description: TemplateReference is the reference to the PlaybookTemplate
+                        or PlaybookDeploymentTemplate. Playbook or PlaybookDeployment
+                        is created from these templates during the KubeforceMachine
+                        lifecycle.
+                      properties:
+                        apiVersion:
+                          description: API version of the referent.
+                          type: string
+                        kind:
+                          description: Kind of the referent.
+                          enum:
+                          - PlaybookTemplate
+                          - PlaybookDeploymentTemplate
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          type: string
+                        namespace:
+                          description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                          type: string
+                        priority:
+                          description: The priority value. The higher the value, the
+                            higher the priority.
+                          format: int32
+                          type: integer
+                        type:
+                          description: Type indicates in which phase of the KubeforceMachine
+                            life cycle this template will be executed.
+                          enum:
+                          - install
+                          - delete
+                          type: string
+                      type: object
+                    description: References are references to PlaybookTemplate or
+                      PlaybookDeploymentTemplate that are managed. KubeforceMachine
+                      has predifined roles "init", "loadblanacer", "cleanup". If these
+                      predefined TemplateReferences have not been specified by users,
+                      they will be created automatically.
+                    type: object
+                  variables:
+                    description: Variables are additional variables that are used
+                      to create the Playbook and PlaybookDeployment.
+                    x-kubernetes-preserve-unknown-fields: true
+                type: object
               providerID:
                 description: ProviderID will be the container name in ProviderID format
                   (kf://<cluster>-<machine>)
                 type: string
-              templateReferences:
-                additionalProperties:
-                  description: TemplateReference is the reference to the PlaybookTemplate
-                    or PlaybookDeploymentTemplate. Playbook or PlaybookDeployment
-                    is created from these templates during the KubeforceMachine lifecycle.
-                  properties:
-                    apiVersion:
-                      description: API version of the referent.
-                      type: string
-                    kind:
-                      description: Kind of the referent.
-                      enum:
-                      - PlaybookTemplate
-                      - PlaybookDeploymentTemplate
-                      type: string
-                    name:
-                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                      type: string
-                    namespace:
-                      description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
-                      type: string
-                    priority:
-                      description: The priority value. The higher the value, the higher
-                        the priority.
-                      format: int32
-                      type: integer
-                    type:
-                      description: Type indicates in which phase of the KubeforceMachine
-                        life cycle this template will be executed.
-                      enum:
-                      - install
-                      - delete
-                      type: string
-                  type: object
-                description: TemplateReferences are references to PlaybookTemplate
-                  or PlaybookDeploymentTemplate that the KubeforceMachine should manage.
-                  KubeforceMachine has predifined roles "init", "loadblanacer", "cleanup".
-                  If these predefined TemplateReferences have not been specified by
-                  users, they will be created automatically.
-                type: object
             type: object
           status:
             description: KubeforceMachineStatus defines the observed state of KubeforceMachine.

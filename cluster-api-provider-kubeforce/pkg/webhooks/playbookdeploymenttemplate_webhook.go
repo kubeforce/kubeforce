@@ -72,7 +72,10 @@ func (webhook *PlaybookDeploymentTemplate) validateDelete(ctx context.Context, t
 		return err
 	}
 	for _, ma := range list.Items {
-		for _, ref := range ma.Spec.TemplateReferences {
+		if ma.Spec.PlaybookTemplates == nil {
+			continue
+		}
+		for _, ref := range ma.Spec.PlaybookTemplates.References {
 			if ref.Kind == "PlaybookDeploymentTemplate" && ref.Name == t.Name && ref.Namespace == t.Namespace {
 				return apierrors.NewForbidden(infrav1.GroupVersion.WithResource("PlaybookDeploymentTemplate").GroupResource(), t.Name,
 					fmt.Errorf("PlaybookDeploymentTemplate cannot be deleted because it is used by KubeforceMachine %s", client.ObjectKeyFromObject(t)))
