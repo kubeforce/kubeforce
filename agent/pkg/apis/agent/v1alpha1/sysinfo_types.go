@@ -46,8 +46,10 @@ type SysInfoSpec struct {
 type Network struct {
 	// Hostname is the current hostname
 	Hostname string `json:"hostname"`
-	// InternalIP is an ip address from default interface
-	InternalIP string `json:"internalIP,omitempty"`
+	// DefaultIPAddress is an ip address from default route
+	DefaultIPAddress string `json:"defaultIPAddress,omitempty"`
+	// DefaultInterfaceName is a network interface from default route
+	DefaultInterfaceName string `json:"defaultInterfaceName,omitempty"`
 	// Interfaces is the slice of network interfaces for this host
 	// +optional
 	Interfaces []Interface `json:"interfaces,omitempty"`
@@ -55,10 +57,10 @@ type Network struct {
 
 // Interface describes summary information about a network interface.
 type Interface struct {
-	Name    string          `json:"name"`
-	Address string          `json:"address"`
-	Mac     string          `json:"mac"`
-	Status  InterfaceStatus `json:"status"`
+	Name      string          `json:"name"`
+	Addresses []string        `json:"addresses"`
+	Flags     []string        `json:"flags"`
+	Status    InterfaceStatus `json:"status"`
 }
 
 // InterfaceStatus defines the status of network interface.

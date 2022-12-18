@@ -23,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd/api"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 
 	clientset "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
@@ -113,4 +114,9 @@ func NewClientSet(keys *Keys, addresses infrav1.Addresses) (*clientset.Clientset
 // IsHealthy returns true if the agent is ready to connect.
 func IsHealthy(a *infrav1.KubeforceAgent) bool {
 	return a.Spec.Installed && conditions.IsTrue(a, infrav1.HealthyCondition)
+}
+
+// IsReady returns true if the agent is ready, all operational states are in order.
+func IsReady(a *infrav1.KubeforceAgent) bool {
+	return a.Spec.Installed && conditions.IsTrue(a, infrav1.HealthyCondition) && conditions.IsTrue(a, clusterv1.ReadyCondition)
 }

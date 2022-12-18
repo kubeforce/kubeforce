@@ -32,6 +32,16 @@ type KubeforceClusterSpec struct {
 	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
 	// +optional
 	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`
+	// Loadbalancer describes the desired state of the internal loadbalancer for KubeforceCluster.
+	// +optional
+	Loadbalancer *LoadbalancerConfig `json:"loadbalancer,omitempty"`
+}
+
+// LoadbalancerConfig defines the desired state of the internal loadbalancer.
+type LoadbalancerConfig struct {
+	// Disabled can be used to prevent controllers from creating and using an internal loadbalancer.
+	// +optional
+	Disabled bool `json:"disabled,omitempty"`
 }
 
 // KubeforceClusterStatus defines the observed state of KubeforceCluster.
@@ -41,6 +51,7 @@ type KubeforceClusterStatus struct {
 	Ready bool `json:"ready"`
 
 	// APIServers describes the kube-apiserver addresses for configuring the loadbalancer on the nodes.
+	// +optional
 	APIServers []string `json:"apiServers,omitempty"`
 
 	// FailureDomains is a slice of FailureDomains.

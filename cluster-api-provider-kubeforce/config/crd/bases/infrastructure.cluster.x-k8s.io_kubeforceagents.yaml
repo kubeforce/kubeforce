@@ -375,6 +375,26 @@ spec:
                 description: Phase represents the current phase of agent actuation.
                   E.g. Pending, Running, Terminating, Failed etc.
                 type: string
+              systemInfo:
+                description: AgentInfo is information that describes the installed
+                  agent.
+                properties:
+                  network:
+                    description: Network is the network information
+                    properties:
+                      defaultIPAddress:
+                        description: DefaultIPAddress is an ip address from default
+                          route
+                        type: string
+                      defaultInterfaceName:
+                        description: DefaultInterfaceName is a network interface from
+                          default route
+                        type: string
+                      hostname:
+                        description: Hostname is the current hostname
+                        type: string
+                    type: object
+                type: object
             type: object
         type: object
     served: true

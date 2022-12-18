@@ -169,18 +169,32 @@ func schema_pkg_apis_agent_v1alpha1_Interface(ref common.ReferenceCallback) comm
 							Format:  "",
 						},
 					},
-					"address": {
+					"addresses": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
-					"mac": {
+					"flags": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 					"status": {
@@ -191,7 +205,7 @@ func schema_pkg_apis_agent_v1alpha1_Interface(ref common.ReferenceCallback) comm
 						},
 					},
 				},
-				Required: []string{"name", "address", "mac", "status"},
+				Required: []string{"name", "addresses", "flags", "status"},
 			},
 		},
 	}
@@ -212,9 +226,16 @@ func schema_pkg_apis_agent_v1alpha1_Network(ref common.ReferenceCallback) common
 							Format:      "",
 						},
 					},
-					"internalIP": {
+					"defaultIPAddress": {
 						SchemaProps: spec.SchemaProps{
-							Description: "InternalIP is an ip address from default interface",
+							Description: "DefaultIPAddress is an ip address from default route",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"defaultInterfaceName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DefaultInterfaceName is a network interface from default route",
 							Type:        []string{"string"},
 							Format:      "",
 						},

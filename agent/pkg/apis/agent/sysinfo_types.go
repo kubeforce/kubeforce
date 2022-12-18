@@ -42,8 +42,10 @@ type SysInfoSpec struct {
 type Network struct {
 	// Hostname is the current hostname
 	Hostname string
-	// InternalIP is an ip address from default interface
-	InternalIP string
+	// DefaultIPAddress is an ip address from default route
+	DefaultIPAddress string
+	// DefaultInterfaceName is a network interface from default route
+	DefaultInterfaceName string
 	// Interfaces is the slice of network interfaces for this host
 	// +optional
 	Interfaces []Interface
@@ -51,10 +53,10 @@ type Network struct {
 
 // Interface describe the options of network interface.
 type Interface struct {
-	Name    string
-	Address string
-	Mac     string
-	Status  InterfaceStatus
+	Name      string
+	Addresses []string
+	Flags     []string
+	Status    InterfaceStatus
 }
 
 // InterfaceStatus defines the status of network interface.

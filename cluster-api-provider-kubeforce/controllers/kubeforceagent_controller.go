@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"k3f.io/kubeforce/agent/pkg/apis/agent/v1alpha1"
 	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
 	agentctrl "k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
 	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/prober"
@@ -237,14 +238,14 @@ func (r *KubeforceAgentReconciler) reconcileDelete(ctx context.Context, kfAgent 
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
-	pds, err := r.getPlaybookDeployments(ctx, kfAgent.Namespace, kfAgent.Name)
+	pbds, err := r.getPlaybookDeployments(ctx, kfAgent.Namespace, kfAgent.Name)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err,
 			"unable to list PlaybookDeployments part of KubeforceAgent %s/%s", kfAgent.Namespace, kfAgent.Name)
 	}
 
-	if len(pds) > 0 {
-		log.Info("Waiting for PlaybookDeployments to be deleted", "count", len(pds))
+	if len(pbds) > 0 {
+		log.Info("Waiting for PlaybookDeployments to be deleted", "count", len(pbds))
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
@@ -371,6 +372,7 @@ func (r *KubeforceAgentReconciler) reconcileNormal(ctx context.Context, kfAgent 
 	}
 	if err := r.reconcileAgentInfo(ctx, kfAgent); err != nil {
 		log.Error(err, "unable to get the agent info")
+		conditions.MarkFalse(kfAgent, infrav1.AgentInfoCondition, infrav1.AgentInfoFailedReason, clusterv1.ConditionSeverityError, err.Error())
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
@@ -497,7 +499,12 @@ func (r *KubeforceAgentReconciler) syncAgentClientSecret(ctx context.Context, kf
 }
 
 func (r *KubeforceAgentReconciler) reconcileAgentInfo(ctx context.Context, kfAgent *infrav1.KubeforceAgent) error {
-	if !agent.IsHealthy(kfAgent) || kfAgent.Status.AgentInfo != nil {
+	if kfAgent.Status.AgentInfo != nil && kfAgent.Status.SystemInfo != nil {
+		conditions.MarkTrue(kfAgent, infrav1.AgentInfoCondition)
+		return nil
+	}
+	if !agent.IsHealthy(kfAgent) {
+		conditions.MarkFalse(kfAgent, infrav1.AgentInfoCondition, infrav1.AgentInfoWaitingForConnectionReadiness, clusterv1.ConditionSeverityInfo, "")
 		return nil
 	}
 	clientset, err := r.AgentClientCache.GetClientSet(ctx, client.ObjectKeyFromObject(kfAgent))
@@ -514,6 +521,12 @@ func (r *KubeforceAgentReconciler) reconcileAgentInfo(ctx context.Context, kfAge
 		Platform:  v.Platform,
 		BuildDate: v.BuildDate,
 	}
+	sysInfo, err := clientset.AgentV1alpha1().SysInfos().Get(ctx)
+	if err != nil {
+		return err
+	}
+	kfAgent.Status.SystemInfo = r.toSystemInfo(*sysInfo)
+	conditions.MarkTrue(kfAgent, infrav1.AgentInfoCondition)
 	return nil
 }
 
@@ -671,11 +684,22 @@ func (r *KubeforceAgentReconciler) createAgentServCertificate(ctx context.Contex
 	return nil
 }
 
+func (r *KubeforceAgentReconciler) toSystemInfo(info v1alpha1.SysInfo) *infrav1.SystemInfo {
+	return &infrav1.SystemInfo{
+		Network: infrav1.NetworkInfo{
+			Hostname:             info.Spec.Network.Hostname,
+			DefaultIPAddress:     info.Spec.Network.DefaultIPAddress,
+			DefaultInterfaceName: info.Spec.Network.DefaultInterfaceName,
+		},
+	}
+}
+
 func patchKubeforceAgent(ctx context.Context, patchHelper *patch.Helper, agent *infrav1.KubeforceAgent) error {
 	conditions.SetSummary(agent,
 		conditions.WithConditions(
 			infrav1.AgentInstalledCondition,
 			infrav1.HealthyCondition,
+			infrav1.AgentInfoCondition,
 			infrav1.AgentTLSCondition,
 		),
 		conditions.WithStepCounterIf(agent.ObjectMeta.DeletionTimestamp.IsZero()),
@@ -690,6 +714,7 @@ func patchKubeforceAgent(ctx context.Context, patchHelper *patch.Helper, agent *
 			clusterv1.ReadyCondition,
 			infrav1.AgentInstalledCondition,
 			infrav1.HealthyCondition,
+			infrav1.AgentInfoCondition,
 			infrav1.AgentTLSCondition,
 		}},
 	)

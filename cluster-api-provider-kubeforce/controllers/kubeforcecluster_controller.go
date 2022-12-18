@@ -33,6 +33,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
@@ -133,7 +134,7 @@ func patchKubeforceCluster(ctx context.Context, patchHelper *patch.Helper, kubef
 	// A step counter is added to represent progress during the provisioning process (instead we are hiding it during the deletion process).
 	conditions.SetSummary(kubeforceCluster,
 		conditions.WithConditions(
-			infrav1.InfrastructureAvailableCondition,
+			infrav1.LoadBalancerAvailableCondition,
 		),
 		conditions.WithStepCounterIf(kubeforceCluster.ObjectMeta.DeletionTimestamp.IsZero()),
 	)
@@ -144,32 +145,45 @@ func patchKubeforceCluster(ctx context.Context, patchHelper *patch.Helper, kubef
 		kubeforceCluster,
 		patch.WithOwnedConditions{Conditions: []clusterv1.ConditionType{
 			clusterv1.ReadyCondition,
-			infrav1.InfrastructureAvailableCondition,
+			infrav1.LoadBalancerAvailableCondition,
 		}},
 	)
 }
 
 func (r *KubeforceClusterReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster, kubeforceCluster *infrav1.KubeforceCluster) (ctrl.Result, error) {
-	machines, err := r.getControlPlaneMachineList(ctx, kubeforceCluster)
-	if err != nil {
-		return ctrl.Result{}, err
+	if kubeforceCluster.Spec.Loadbalancer != nil && kubeforceCluster.Spec.Loadbalancer.Disabled {
+		kubeforceCluster.Status.Ready = true
+		conditions.MarkTrue(kubeforceCluster, infrav1.LoadBalancerAvailableCondition)
+		return ctrl.Result{}, nil
 	}
-	r.refreshAPIServers(ctx, kubeforceCluster, machines)
-	if err := r.reconcileLBConfigMap(ctx, cluster, machines, kubeforceCluster); err != nil {
-		return ctrl.Result{}, err
-	}
-	if err := r.reconcileLBDeployment(ctx, cluster, kubeforceCluster); err != nil {
-		return ctrl.Result{}, err
-	}
-	if err := r.reconcileLBService(ctx, cluster, kubeforceCluster); err != nil {
-		return ctrl.Result{}, err
-	}
-	if err := r.reconcileControlPlaneEndpoint(ctx, cluster, kubeforceCluster); err != nil {
+	if err := r.reconcileLoadbalancer(ctx, cluster, kubeforceCluster); err != nil {
+		conditions.MarkFalse(kubeforceCluster, infrav1.LoadBalancerAvailableCondition, infrav1.LoadBalancerProvisioningFailedReason, clusterv1.ConditionSeverityWarning, err.Error())
 		return ctrl.Result{}, err
 	}
 	kubeforceCluster.Status.Ready = true
-	conditions.MarkTrue(kubeforceCluster, infrav1.InfrastructureAvailableCondition)
+	conditions.MarkTrue(kubeforceCluster, infrav1.LoadBalancerAvailableCondition)
 	return ctrl.Result{}, nil
+}
+
+func (r *KubeforceClusterReconciler) reconcileLoadbalancer(ctx context.Context, cluster *clusterv1.Cluster, kubeforceCluster *infrav1.KubeforceCluster) error {
+	machines, err := r.getControlPlaneMachineList(ctx, kubeforceCluster)
+	if err != nil {
+		return err
+	}
+	r.refreshAPIServers(ctx, kubeforceCluster, machines)
+	if err := r.reconcileLBConfigMap(ctx, cluster, machines, kubeforceCluster); err != nil {
+		return err
+	}
+	if err := r.reconcileLBDeployment(ctx, cluster, kubeforceCluster); err != nil {
+		return err
+	}
+	if err := r.reconcileLBService(ctx, cluster, kubeforceCluster); err != nil {
+		return err
+	}
+	if err := r.reconcileControlPlaneEndpoint(ctx, cluster, kubeforceCluster); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *KubeforceClusterReconciler) getExternalAddresses(ctx context.Context, machines []infrav1.KubeforceMachine) ([]string, error) {
@@ -224,8 +238,12 @@ func (r *KubeforceClusterReconciler) reconcileLBDeployment(ctx context.Context, 
 		return errors.WithStack(err)
 	}
 	if changed {
-		r.Log.Info("updating loadbalancer Deployment", "key", key)
-		err := r.Client.Patch(ctx, d, patchObj)
+		diff, err := patchObj.Data(d)
+		if err != nil {
+			return err
+		}
+		r.Log.Info("updating loadbalancer Deployment", "key", key, "diff", string(diff))
+		err = r.Client.Patch(ctx, d, patchObj)
 		if err != nil {
 			return errors.Wrapf(err, "failed to patch Deployment")
 		}
@@ -369,77 +387,80 @@ func (r *KubeforceClusterReconciler) fillLBDeployment(d *appsv1.Deployment,
 	d.Spec.Selector = &metav1.LabelSelector{
 		MatchLabels: r.lbLabels(cluster.Name),
 	}
-	d.Spec.Template.Spec.Containers = []corev1.Container{
+	if d.Spec.Template.Spec.Containers == nil {
+		d.Spec.Template.Spec.Containers = make([]corev1.Container, 1)
+	}
+	traefikContainer := d.Spec.Template.Spec.Containers[0]
+	traefikContainer.Name = "traefik"
+	traefikContainer.Image = "traefik:v2.9.6"
+	traefikContainer.ImagePullPolicy = corev1.PullIfNotPresent
+	traefikContainer.Args = []string{
+		"--log.level=DEBUG",
+		"--entrypoints.controlplane=true",
+		"--entrypoints.controlplane.address=:9443",
+		"--entrypoints.controlplane.transport.lifecycle.gracetimeout=10s",
+		"--entrypoints.controlplane.transport.respondingtimeouts.readtimeout=10s",
+		"--entrypoints.controlplane.transport.respondingtimeouts.idletimeout=10s",
+		"--entrypoints.controlplane.transport.respondingtimeouts.writetimeout=10s",
+		"--entrypoints.ping=true",
+		"--entrypoints.ping.address=:9001",
+		"--ping=true",
+		"--ping.entrypoint=ping",
+		"--providers.file.watch=true",
+		"--providers.file.debugloggeneratedtemplate=true",
+		"--providers.file.directory=/etc/traefik/dynamic_conf/",
+	}
+	traefikContainer.Ports = []corev1.ContainerPort{
 		{
-			Name:  "traefik",
-			Image: "traefik:v2.9.6",
-			Args: []string{
-				"--log.level=DEBUG",
-				"--entrypoints.controlplane=true",
-				"--entrypoints.controlplane.address=:9443",
-				"--entrypoints.controlplane.transport.lifecycle.gracetimeout=10s",
-				"--entrypoints.controlplane.transport.respondingtimeouts.readtimeout=10s",
-				"--entrypoints.controlplane.transport.respondingtimeouts.idletimeout=10s",
-				"--entrypoints.controlplane.transport.respondingtimeouts.writetimeout=10s",
-				"--entrypoints.ping=true",
-				"--entrypoints.ping.address=:9001",
-				"--ping=true",
-				"--ping.entrypoint=ping",
-				"--providers.file.watch=true",
-				"--providers.file.debugloggeneratedtemplate=true",
-				"--providers.file.directory=/etc/traefik/dynamic_conf/",
-			},
-			Ports: []corev1.ContainerPort{
-				{
-					Name:          "tcp",
-					ContainerPort: 9443,
-					Protocol:      "TCP",
-				},
-			},
-			Resources: corev1.ResourceRequirements{},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "config",
-					ReadOnly:  true,
-					MountPath: "/etc/traefik/dynamic_conf/",
-				},
-			},
-			LivenessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path:   "/ping",
-						Port:   intstr.FromInt(9001),
-						Scheme: corev1.URISchemeHTTP,
-					},
-				},
-				InitialDelaySeconds: 2,
-				TimeoutSeconds:      2,
-				PeriodSeconds:       10,
-				SuccessThreshold:    1,
-				FailureThreshold:    3,
-			},
-			ReadinessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path:   "/ping",
-						Port:   intstr.FromInt(9001),
-						Scheme: corev1.URISchemeHTTP,
-					},
-				},
-				InitialDelaySeconds: 2,
-				TimeoutSeconds:      2,
-				PeriodSeconds:       10,
-				SuccessThreshold:    1,
-				FailureThreshold:    1,
-			},
-			ImagePullPolicy: corev1.PullIfNotPresent,
+			Name:          "tcp",
+			ContainerPort: 9443,
+			Protocol:      "TCP",
 		},
 	}
+	traefikContainer.VolumeMounts = []corev1.VolumeMount{
+		{
+			Name:      "config",
+			ReadOnly:  true,
+			MountPath: "/etc/traefik/dynamic_conf/",
+		},
+	}
+	traefikContainer.LivenessProbe = &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path:   "/ping",
+				Port:   intstr.FromInt(9001),
+				Scheme: corev1.URISchemeHTTP,
+			},
+		},
+		InitialDelaySeconds: 2,
+		TimeoutSeconds:      2,
+		PeriodSeconds:       10,
+		SuccessThreshold:    1,
+		FailureThreshold:    3,
+	}
+
+	traefikContainer.ReadinessProbe = &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path:   "/ping",
+				Port:   intstr.FromInt(9001),
+				Scheme: corev1.URISchemeHTTP,
+			},
+		},
+		InitialDelaySeconds: 2,
+		TimeoutSeconds:      2,
+		PeriodSeconds:       10,
+		SuccessThreshold:    1,
+		FailureThreshold:    1,
+	}
+	d.Spec.Template.Spec.Containers[0] = traefikContainer
+
 	d.Spec.Template.Spec.Volumes = []corev1.Volume{
 		{
 			Name: "config",
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
+					DefaultMode: pointer.Int32(0o644),
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: r.lbConfigName(cluster.Name),
 					},
@@ -516,8 +537,8 @@ func (r *KubeforceClusterReconciler) deleteKubeconfig(ctx context.Context, clust
 func (r *KubeforceClusterReconciler) refreshAPIServers(_ context.Context, cluster *infrav1.KubeforceCluster, controlPlaneMachines []infrav1.KubeforceMachine) {
 	apiServers := make([]string, 0, len(controlPlaneMachines))
 	for _, m := range controlPlaneMachines {
-		if m.Status.InternalIP != "" {
-			apiServers = append(apiServers, m.Status.InternalIP)
+		if m.Status.DefaultIPAddress != "" {
+			apiServers = append(apiServers, m.Status.DefaultIPAddress)
 		}
 	}
 	sort.Strings(apiServers)
@@ -525,6 +546,7 @@ func (r *KubeforceClusterReconciler) refreshAPIServers(_ context.Context, cluste
 }
 
 func (r *KubeforceClusterReconciler) reconcileDelete(ctx context.Context, cluster *clusterv1.Cluster, kfCluster *infrav1.KubeforceCluster) (ctrl.Result, error) {
+	log := ctrl.LoggerFrom(ctx)
 	patchHelper, err := patch.NewHelper(kfCluster, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -534,15 +556,16 @@ func (r *KubeforceClusterReconciler) reconcileDelete(ctx context.Context, cluste
 		return ctrl.Result{}, errors.Wrap(err, "failed to patch KubeforceCluster")
 	}
 
-	kfMachines, err := r.getKubeforceMachinesInCluster(ctx, cluster.Namespace, cluster.Name)
+	descendants, err := r.listDescendants(ctx, cluster)
 	if err != nil {
-		return reconcile.Result{}, errors.Wrapf(err,
-			"unable to list KubeforceMachines part of KubeforceCluster %s/%s", kfCluster.Namespace, kfCluster.Name)
+		log.Error(err, "Failed to list descendants")
+		return reconcile.Result{}, err
 	}
 
-	if len(kfMachines) > 0 {
-		r.Log.Info("Waiting for KubeforceMachines to be deleted", "count", len(kfMachines))
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+	if descendantCount := descendants.length(); descendantCount > 0 {
+		log.Info("Cluster still has descendants - waiting for deletion", "descendants", descendants.descendantNames(), "count", descendants.length())
+		// Requeue so we can check the next time to see if there are still any descendants left.
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	// Cluster is deleted so remove the finalizer.
@@ -551,20 +574,68 @@ func (r *KubeforceClusterReconciler) reconcileDelete(ctx context.Context, cluste
 	return ctrl.Result{}, nil
 }
 
-func (r *KubeforceClusterReconciler) getKubeforceMachinesInCluster(ctx context.Context, namespace, clusterName string) ([]infrav1.KubeforceMachine, error) {
-	ml := &infrav1.KubeforceMachineList{}
-	if err := r.Client.List(
-		ctx,
-		ml,
-		client.InNamespace(namespace),
-		client.MatchingLabels{
-			clusterv1.ClusterLabelName: clusterName,
-		},
-	); err != nil {
-		return nil, errors.Wrap(err, "failed to list KubeforceMachineList")
+// listDescendants returns a list of all MachineDeployments, MachineSets, MachinePools and Machines for the cluster.
+func (r *KubeforceClusterReconciler) listDescendants(ctx context.Context, cluster *clusterv1.Cluster) (clusterDescendants, error) {
+	var descendants clusterDescendants
+
+	listOptions := []client.ListOption{
+		client.InNamespace(cluster.Namespace),
+		client.MatchingLabels(map[string]string{clusterv1.ClusterLabelName: cluster.Name}),
 	}
 
-	return ml.Items, nil
+	if err := r.Client.List(ctx, &descendants.machines, listOptions...); err != nil {
+		return descendants, errors.Wrapf(err, "failed to list KubeforceMachines for cluster %s/%s", cluster.Namespace, cluster.Name)
+	}
+
+	if err := r.Client.List(ctx, &descendants.playbooks, listOptions...); err != nil {
+		return descendants, errors.Wrapf(err, "failed to list Playbooks for cluster %s/%s", cluster.Namespace, cluster.Name)
+	}
+
+	if err := r.Client.List(ctx, &descendants.playbookDeployments, listOptions...); err != nil {
+		return descendants, errors.Wrapf(err, "failed to list PlaybookDeployments for cluster %s/%s", cluster.Namespace, cluster.Name)
+	}
+
+	return descendants, nil
+}
+
+type clusterDescendants struct {
+	machines            infrav1.KubeforceMachineList
+	playbooks           infrav1.PlaybookList
+	playbookDeployments infrav1.PlaybookDeploymentList
+}
+
+// length returns the number of descendants.
+func (c *clusterDescendants) length() int {
+	return len(c.machines.Items) +
+		len(c.playbooks.Items) +
+		len(c.playbookDeployments.Items)
+}
+
+func (c *clusterDescendants) descendantNames() string {
+	descendants := make([]string, 0)
+	kubeforceMachineNames := make([]string, len(c.machines.Items))
+	for i, machine := range c.machines.Items {
+		kubeforceMachineNames[i] = machine.Name
+	}
+	if len(kubeforceMachineNames) > 0 {
+		descendants = append(descendants, "KubeforceMachines: "+strings.Join(kubeforceMachineNames, ","))
+	}
+	playbookNames := make([]string, len(c.playbooks.Items))
+	for i, playbook := range c.playbooks.Items {
+		playbookNames[i] = playbook.Name
+	}
+	if len(playbookNames) > 0 {
+		descendants = append(descendants, "Playbooks: "+strings.Join(playbookNames, ","))
+	}
+	playbookDeploymentNames := make([]string, len(c.playbookDeployments.Items))
+	for i, deployment := range c.playbookDeployments.Items {
+		playbookDeploymentNames[i] = deployment.Name
+	}
+	if len(playbookDeploymentNames) > 0 {
+		descendants = append(descendants, "Playbook deployments: "+strings.Join(playbookDeploymentNames, ","))
+	}
+
+	return strings.Join(descendants, ";")
 }
 
 func (r *KubeforceClusterReconciler) getControlPlaneMachineList(ctx context.Context, cluster *infrav1.KubeforceCluster) ([]infrav1.KubeforceMachine, error) {

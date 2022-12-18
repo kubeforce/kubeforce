@@ -237,8 +237,8 @@ func Convert_agent_Condition_To_v1alpha1_Condition(in *agent.Condition, out *Con
 
 func autoConvert_v1alpha1_Interface_To_agent_Interface(in *Interface, out *agent.Interface, s conversion.Scope) error {
 	out.Name = in.Name
-	out.Address = in.Address
-	out.Mac = in.Mac
+	out.Addresses = *(*[]string)(unsafe.Pointer(&in.Addresses))
+	out.Flags = *(*[]string)(unsafe.Pointer(&in.Flags))
 	out.Status = agent.InterfaceStatus(in.Status)
 	return nil
 }
@@ -250,8 +250,8 @@ func Convert_v1alpha1_Interface_To_agent_Interface(in *Interface, out *agent.Int
 
 func autoConvert_agent_Interface_To_v1alpha1_Interface(in *agent.Interface, out *Interface, s conversion.Scope) error {
 	out.Name = in.Name
-	out.Address = in.Address
-	out.Mac = in.Mac
+	out.Addresses = *(*[]string)(unsafe.Pointer(&in.Addresses))
+	out.Flags = *(*[]string)(unsafe.Pointer(&in.Flags))
 	out.Status = InterfaceStatus(in.Status)
 	return nil
 }
@@ -263,7 +263,8 @@ func Convert_agent_Interface_To_v1alpha1_Interface(in *agent.Interface, out *Int
 
 func autoConvert_v1alpha1_Network_To_agent_Network(in *Network, out *agent.Network, s conversion.Scope) error {
 	out.Hostname = in.Hostname
-	out.InternalIP = in.InternalIP
+	out.DefaultIPAddress = in.DefaultIPAddress
+	out.DefaultInterfaceName = in.DefaultInterfaceName
 	out.Interfaces = *(*[]agent.Interface)(unsafe.Pointer(&in.Interfaces))
 	return nil
 }
@@ -275,7 +276,8 @@ func Convert_v1alpha1_Network_To_agent_Network(in *Network, out *agent.Network, 
 
 func autoConvert_agent_Network_To_v1alpha1_Network(in *agent.Network, out *Network, s conversion.Scope) error {
 	out.Hostname = in.Hostname
-	out.InternalIP = in.InternalIP
+	out.DefaultIPAddress = in.DefaultIPAddress
+	out.DefaultInterfaceName = in.DefaultInterfaceName
 	out.Interfaces = *(*[]Interface)(unsafe.Pointer(&in.Interfaces))
 	return nil
 }

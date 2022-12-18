@@ -106,9 +106,6 @@ spec:
       externalIP: 172.18.0.4
     master2:
       externalIP: 172.18.0.5
-#  addressRanges:
-#    - from: 172.18.0.10
-#      to: 172.18.0.15
   template:
     metadata:
       labels:
@@ -195,7 +192,12 @@ kind: KubeforceCluster
 metadata:
   name: sample
   namespace: default
-spec: {}
+spec:
+  loadbalancer:
+    disabled: true
+  controlPlaneEndpoint:
+    host: 172.18.0.252
+    port: 6443
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: KubeforceMachineTemplate
@@ -220,18 +222,67 @@ spec:
       maxSurge: 0
   kubeadmConfigSpec:
     clusterConfiguration:
-      controlPlaneEndpoint: "127.0.0.1:9443"
       apiServer:
         certSANs:
           - localhost
-          - sample.default.svc
           - 127.0.0.1
-          - 172.18.0.4
-          - 172.18.0.5
-          - 172.18.0.6
       controllerManager:
         extraArgs:
           enable-hostpath-provisioner: "true"
+    files:
+      - content: |
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            creationTimestamp: null
+            name: kube-vip
+            namespace: kube-system
+          spec:
+            containers:
+            - args:
+              - manager
+              env:
+              - name: cp_enable
+                value: "true"
+              - name: vip_arp
+                value: "true"
+              - name: vip_leaderelection
+                value: "true"
+              - name: vip_address
+                value: 172.18.0.252
+              - name: vip_interface
+                value: {{ systemInfo.network.defaultInterfaceName }}
+              - name: vip_leaseduration
+                value: "15"
+              - name: vip_renewdeadline
+                value: "10"
+              - name: vip_retryperiod
+                value: "2"
+              image: ghcr.io/kube-vip/kube-vip:v0.5.7
+              imagePullPolicy: IfNotPresent
+              name: kube-vip
+              resources: {}
+              securityContext:
+                capabilities:
+                  add:
+                  - NET_ADMIN
+                  - NET_RAW
+              volumeMounts:
+              - mountPath: /etc/kubernetes/admin.conf
+                name: kubeconfig
+            hostNetwork: true
+            hostAliases:
+              - hostnames:
+                  - kubernetes
+                ip: 127.0.0.1
+            volumes:
+            - hostPath:
+                path: /etc/kubernetes/admin.conf
+                type: FileOrCreate
+              name: kubeconfig
+          status: {}
+        owner: root:root
+        path: /etc/kubernetes/manifests/kube-vip.yaml
     initConfiguration:
       nodeRegistration:
         criSocket: /var/run/containerd/containerd.sock
@@ -243,10 +294,6 @@ spec:
           - Swap
           - SystemVerification
     joinConfiguration:
-      discovery:
-        bootstrapToken:
-          token: ""
-          apiServerEndpoint: 127.0.0.1:9443
       nodeRegistration:
         criSocket: /var/run/containerd/containerd.sock
         kubeletExtraArgs:
@@ -263,7 +310,7 @@ spec:
       name: sample-control-plane
       namespace: default
   replicas: 3
-  version: v1.24.8
+  version: v1.23.14
 #  version: v1.25.4
 ---
 ### WORKERS
@@ -356,10 +403,6 @@ spec:
   template:
     spec:
       joinConfiguration:
-        discovery:
-          bootstrapToken:
-            token: ""
-            apiServerEndpoint: 127.0.0.1:9443
         nodeRegistration:
           kubeletExtraArgs:
             fail-swap-on: "false"
@@ -398,7 +441,7 @@ spec:
         kind: KubeforceMachineTemplate
         name: sample-workers
         namespace: default
-      version: v1.24.8
+      version: v1.23.14
 ---
 #kubectl patch cluster sample --type merge -p '{"spec":{"paused": true}}'
 #kubectl apply -f https://projectcalico.docs.tigera.io/manifests/calico.yaml

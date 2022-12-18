@@ -213,8 +213,8 @@ spec:
                   - type
                   type: object
                 type: array
-              internalIP:
-                description: InternalIP is an ip address from default interface
+              defaultIPAddress:
+                description: DefaultIPAddress is an ip address from default route.
                 type: string
               observedGeneration:
                 description: ObservedGeneration is the latest generation observed

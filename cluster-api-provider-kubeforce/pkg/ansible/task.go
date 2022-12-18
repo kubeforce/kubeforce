@@ -23,6 +23,7 @@ func NewTasks(name string) *Tasks {
 		Hosts:      "localhost",
 		Connection: "local",
 		Become:     true,
+		VarFiles:   []string{"variables.yaml"},
 		Tasks:      make([]TaskModule, 0),
 	}
 }
@@ -34,6 +35,7 @@ type Tasks struct {
 	Connection string       `json:"connection,omitempty"`
 	Become     bool         `json:"become"`
 	Tasks      []TaskModule `json:"tasks"`
+	VarFiles   []string     `json:"vars_files,omitempty"`
 }
 
 // AddTasks adds tasks to ansible tasks module.
