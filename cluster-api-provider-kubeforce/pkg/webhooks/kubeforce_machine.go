@@ -24,6 +24,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -55,21 +56,55 @@ var _ webhook.CustomValidator = &KubeforceMachine{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type.
 func (webhook *KubeforceMachine) Default(ctx context.Context, obj runtime.Object) error {
-	in, ok := obj.(*infrav1.KubeforceMachine)
+	kfm, ok := obj.(*infrav1.KubeforceMachine)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a KubeforceMachine but got a %T", obj))
 	}
-	if in.Spec.PlaybookTemplates == nil {
-		in.Spec.PlaybookTemplates = &infrav1.PlaybookTemplates{}
+	if kfm.Spec.PlaybookTemplates == nil {
+		kfm.Spec.PlaybookTemplates = &infrav1.PlaybookTemplates{}
 	}
-	if in.Spec.PlaybookTemplates.References == nil {
-		in.Spec.PlaybookTemplates.References = make(map[string]*infrav1.TemplateReference)
+	if kfm.Spec.PlaybookTemplates.References == nil {
+		kfm.Spec.PlaybookTemplates.References = make(map[string]*infrav1.TemplateReference)
 	}
-	webhook.defaultTemplateReferences(in.Spec.PlaybookTemplates.References)
+	kfc, err := webhook.findKubeforceCluster(ctx, kfm)
+	if err != nil {
+		return err
+	}
+	webhook.defaultTemplateReferences(kfm.Spec.PlaybookTemplates.References, kfc)
 	return nil
 }
 
-func (webhook *KubeforceMachine) defaultTemplateReferences(refs map[string]*infrav1.TemplateReference) {
+func (webhook *KubeforceMachine) findKubeforceCluster(ctx context.Context, kfm *infrav1.KubeforceMachine) (*infrav1.KubeforceCluster, error) {
+	if kfm.Labels[clusterv1.ClusterLabelName] == "" {
+		return nil, nil
+	}
+	clusterKey := client.ObjectKey{
+		Namespace: kfm.Namespace,
+		Name:      kfm.Labels[clusterv1.ClusterLabelName],
+	}
+	cluster := &clusterv1.Cluster{}
+	if err := webhook.Client.Get(ctx, clusterKey, cluster); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("unable to get Cluster %s", clusterKey))
+	}
+
+	kubeforceCluster := &infrav1.KubeforceCluster{}
+	kfcKey := client.ObjectKey{
+		Namespace: kfm.Namespace,
+		Name:      cluster.Spec.InfrastructureRef.Name,
+	}
+	if err := webhook.Client.Get(ctx, kfcKey, kubeforceCluster); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("unable to get KubeforceCluster %s", kfcKey))
+	}
+	return kubeforceCluster, nil
+}
+
+func (webhook *KubeforceMachine) defaultTemplateReferences(refs map[string]*infrav1.TemplateReference, kfc *infrav1.KubeforceCluster) {
 	initRole := string(assets.PlaybookInstaller)
 	if refs[initRole] == nil {
 		refs[initRole] = &infrav1.TemplateReference{
@@ -81,18 +116,19 @@ func (webhook *KubeforceMachine) defaultTemplateReferences(refs map[string]*infr
 	}
 	refs[initRole].Priority = 1000
 	refs[initRole].Type = infrav1.TemplateTypeInstall
-
-	lbRole := string(assets.PlaybookLoadbalancer)
-	if refs[lbRole] == nil {
-		refs[lbRole] = &infrav1.TemplateReference{
-			Kind:       "PlaybookDeploymentTemplate",
-			Namespace:  infrav1.KubeforceSystemNamespace,
-			Name:       utiltmpl.GetName(assets.PlaybookLoadbalancer),
-			APIVersion: infrav1.GroupVersion.String(),
+	if kfc != nil && (kfc.Spec.Loadbalancer == nil || !kfc.Spec.Loadbalancer.Disabled) {
+		lbRole := string(assets.PlaybookLoadbalancer)
+		if refs[lbRole] == nil {
+			refs[lbRole] = &infrav1.TemplateReference{
+				Kind:       "PlaybookDeploymentTemplate",
+				Namespace:  infrav1.KubeforceSystemNamespace,
+				Name:       utiltmpl.GetName(assets.PlaybookLoadbalancer),
+				APIVersion: infrav1.GroupVersion.String(),
+			}
 		}
+		refs[lbRole].Priority = 100
+		refs[lbRole].Type = infrav1.TemplateTypeInstall
 	}
-	refs[lbRole].Priority = 100
-	refs[lbRole].Type = infrav1.TemplateTypeInstall
 
 	cleanerRole := string(assets.PlaybookCleaner)
 	if refs[cleanerRole] == nil {

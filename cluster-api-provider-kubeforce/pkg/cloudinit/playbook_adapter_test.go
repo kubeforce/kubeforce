@@ -570,6 +570,8 @@ const playbook = `
       owner: root
   - shell:
       cmd: kubeadm init --config /run/kubeadm/kubeadm.yaml  && echo success > /run/cluster-api/bootstrap-success.complete
+  vars_files:
+  - variables.yaml
 `
 
 func TestRealUseCase(t *testing.T) {

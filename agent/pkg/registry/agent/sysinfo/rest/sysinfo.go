@@ -18,15 +18,18 @@ package rest
 
 import (
 	"context"
+	"net"
 	"os"
+	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	utilnet "k8s.io/apimachinery/pkg/util/net"
+	apiutilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apiserver/pkg/registry/rest"
 
 	"k3f.io/kubeforce/agent/pkg/apis/agent"
+	utilnet "k3f.io/kubeforce/agent/pkg/util/net"
 )
 
 var startTime = time.Now()
@@ -58,7 +61,15 @@ func (r *SysInfoREST) Get(ctx context.Context, name string, options *metav1.GetO
 	if err != nil {
 		return nil, err
 	}
-	ip, err := utilnet.ChooseHostInterface()
+	ip, err := apiutilnet.ChooseHostInterface()
+	if err != nil {
+		return nil, err
+	}
+	interfaceByIP, err := utilnet.ChooseHostInterfaceByIP(ip)
+	if err != nil {
+		return nil, err
+	}
+	interfaces, err := r.getInterfaces()
 	if err != nil {
 		return nil, err
 	}
@@ -69,14 +80,57 @@ func (r *SysInfoREST) Get(ctx context.Context, name string, options *metav1.GetO
 		},
 		Spec: agent.SysInfoSpec{
 			Network: agent.Network{
-				Hostname:   hostname,
-				InternalIP: ip.String(),
-				Interfaces: []agent.Interface{
-					{
-						Name: "fake-interface",
-					},
-				},
+				Hostname:             hostname,
+				DefaultIPAddress:     ip.String(),
+				DefaultInterfaceName: interfaceByIP.Name,
+				Interfaces:           interfaces,
 			},
 		},
 	}, nil
+}
+
+func (r *SysInfoREST) getInterfaces() ([]agent.Interface, error) {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]agent.Interface, 0, len(interfaces))
+	for _, intf := range interfaces {
+		agentInterface, err := r.toAgentInterface(intf)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, *agentInterface)
+	}
+	return result, nil
+}
+
+func (r *SysInfoREST) toAgentInterface(intf net.Interface) (*agent.Interface, error) {
+	netAddrs, err := intf.Addrs()
+	if err != nil {
+		return nil, err
+	}
+	addrs := make([]string, 0, len(netAddrs))
+	for _, addr := range netAddrs {
+		addrs = append(addrs, addr.String())
+	}
+	var flags []string
+	intfFlags := intf.Flags.String()
+	if intfFlags != "0" && intfFlags != "" {
+		flags = strings.Split(intfFlags, "|")
+	}
+
+	return &agent.Interface{
+		Name:      intf.Name,
+		Addresses: addrs,
+		Flags:     flags,
+		Status:    r.toAgentInterfaceStatus(intf),
+	}, nil
+}
+
+func (r *SysInfoREST) toAgentInterfaceStatus(intf net.Interface) agent.InterfaceStatus {
+	if intf.Flags&net.FlagUp != 0 {
+		return agent.InterfaceStatusUP
+	}
+	return agent.InterfaceStatusDOWN
 }

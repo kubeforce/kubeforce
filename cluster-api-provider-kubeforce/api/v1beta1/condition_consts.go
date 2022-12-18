@@ -29,11 +29,11 @@ const (
 	// WaitingForSSHConfigurationReason (Severity=Info).
 	WaitingForSSHConfigurationReason = "WaitingForSSHConfiguration"
 
-	// WaitingForAgentToRunReason (Severity=Info) documents a KubeforceMachine waiting for the agent
+	// WaitingForAgentToRunReason (Severity=Info) documents a KubeforceAgent waiting for the agent
 	// to run that provides the KubeforceMachine infrastructure.
 	WaitingForAgentToRunReason = "WaitingForAgentToRun"
 
-	// AgentInstallingFailedReason (Severity=Error) documents a KubeforceMachine controller detecting
+	// AgentInstallingFailedReason (Severity=Error) documents a KubeforceAgent controller detecting
 	// an error while installing the agent; those kind of errors are usually transient and failed provisioning
 	// are automatically re-tried by the controller.
 	AgentInstallingFailedReason = "AgentInstallingFailed"
@@ -42,7 +42,7 @@ const (
 const (
 	// HealthyCondition documents the health state of an agent.
 	HealthyCondition clusterv1.ConditionType = "Healthy"
-	// ProbeFailedReason (Severity=Error) documents a KubeforceMachine that controller can not connect to the agent.
+	// ProbeFailedReason (Severity=Error) documents a KubeforceAgent that controller can not connect to the agent.
 	ProbeFailedReason = "ProbeFailed"
 )
 
@@ -50,13 +50,22 @@ const (
 	// AgentTLSCondition documents the status of the agent tls certificate.
 	AgentTLSCondition clusterv1.ConditionType = "AgentTLS"
 
-	// WaitingForCertIssuerRefReason (Severity=Error) documents a KubeforceMachine waiting for the certificate
+	// WaitingForCertIssuerRefReason (Severity=Error) documents a KubeforceAgent waiting for the certificate
 	// issuer reference to be installed.
 	WaitingForCertIssuerRefReason = "WaitingForCertIssuerRef"
 
-	// WaitingForCertIssueReason (Severity=Info) documents a KubeforceMachine waiting for the issue of the tls certificate
+	// WaitingForCertIssueReason (Severity=Info) documents a KubeforceAgent waiting for the issue of the tls certificate
 	// for the agent.
 	WaitingForCertIssueReason = "WaitingForCertIssue"
+)
+
+const (
+	// AgentInfoCondition documents the receipt of version and system information from an agent.
+	AgentInfoCondition clusterv1.ConditionType = "AgentInfo"
+	// AgentInfoWaitingForConnectionReadiness (Severity=Info) documents a KubeforceAgent waiting to be ready to connect.
+	AgentInfoWaitingForConnectionReadiness = "WaitingForConnectionReadiness"
+	// AgentInfoFailedReason (Severity=Error) documents that controller can not get the agent information.
+	AgentInfoFailedReason = "AgentInfoFailedReason"
 )
 
 const (
@@ -156,4 +165,16 @@ const (
 	// ProviderIDFailedReason documents (Severity=Error) a KubeforceMachine controller detecting an error while
 	// provision ProviderID.
 	ProviderIDFailedReason = "ProviderIDFailed"
+)
+
+// Conditions and condition Reasons for the KubeforceCluster object.
+
+const (
+	// LoadBalancerAvailableCondition documents the availability of the internal load balancer for cluster.
+	LoadBalancerAvailableCondition clusterv1.ConditionType = "LoadBalancerAvailable"
+
+	// LoadBalancerProvisioningFailedReason (Severity=Warning) documents a KubeforceCluster controller detecting
+	// an error while provisioning internal load balancer.; those kind of
+	// errors are usually transient and failed provisioning are automatically re-tried by the controller.
+	LoadBalancerProvisioningFailedReason = "LoadBalancerProvisioningFailed"
 )

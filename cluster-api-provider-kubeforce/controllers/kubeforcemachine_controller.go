@@ -44,8 +44,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"sigs.k8s.io/yaml"
 
-	clientset "k3f.io/kubeforce/agent/pkg/generated/clientset/versioned"
 	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
 	agentctrl "k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/agent"
 	"k3f.io/kubeforce/cluster-api-provider-kubeforce/controllers/kubeadm"
@@ -179,9 +179,9 @@ func patchKubeforceMachine(ctx context.Context, patchHelper *patch.Helper, kubef
 	)
 }
 
-func (r *KubeforceMachineReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster, kubeforceMachine *infrav1.KubeforceMachine, kubeforceCluster *infrav1.KubeforceCluster) (res ctrl.Result, retErr error) {
+func (r *KubeforceMachineReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster, kfm *infrav1.KubeforceMachine, kfc *infrav1.KubeforceCluster) (res ctrl.Result, retErr error) {
 	log := ctrl.LoggerFrom(ctx)
-	config, err := kubeadm.GetConfig(ctx, r.Client, kubeforceMachine)
+	config, err := kubeadm.GetConfig(ctx, r.Client, kfm)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -189,7 +189,7 @@ func (r *KubeforceMachineReconciler) reconcileNormal(ctx context.Context, cluste
 		log.Info("Waiting for Controller to set OwnerRef on KubeforceMachine")
 		return ctrl.Result{}, nil
 	}
-	if result, err := r.reconcileAgentRef(ctx, kubeforceMachine); !result.IsZero() || err != nil {
+	if result, err := r.reconcileAgentRef(ctx, kfm); !result.IsZero() || err != nil {
 		if err != nil {
 			log.Error(err, "failed to reconcile agent tls certificate")
 		}
@@ -197,33 +197,28 @@ func (r *KubeforceMachineReconciler) reconcileNormal(ctx context.Context, cluste
 	}
 	kfAgent := &infrav1.KubeforceAgent{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
-		Namespace: kubeforceMachine.Namespace,
-		Name:      kubeforceMachine.Spec.AgentRef.Name,
+		Namespace: kfm.Namespace,
+		Name:      kfm.Spec.AgentRef.Name,
 	}, kfAgent); err != nil {
-		conditions.MarkFalse(kubeforceMachine, infrav1.AgentProvisionedCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, err.Error())
+		conditions.MarkFalse(kfm, infrav1.AgentProvisionedCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, err.Error())
 		return ctrl.Result{}, err
 	}
 
-	agentClient, err := r.AgentClientCache.GetClientSet(ctx, client.ObjectKeyFromObject(kfAgent))
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if kubeforceMachine.Status.InternalIP == "" {
-		info, err := agentClient.AgentV1alpha1().SysInfos().Get(ctx)
-		if err != nil {
-			return ctrl.Result{}, errors.Wrap(err, "unable to set InternalIP")
-		}
-		kubeforceMachine.Status.InternalIP = info.Spec.Network.InternalIP
+	if kfAgent.Status.SystemInfo != nil {
+		kfm.Status.DefaultIPAddress = kfAgent.Status.SystemInfo.Network.DefaultIPAddress
 	}
 
 	vars := make(map[string]interface{})
+	// variables for the loadbalancer are not needed if it is disabled
+	if kfc.Spec.Loadbalancer == nil || !kfc.Spec.Loadbalancer.Disabled {
+		vars["apiServers"] = r.getAPIServerEndpoints(kfm, kfc)
+		vars["apiServerPort"] = "6443"
+	}
 	vars["kubernetesVersion"] = config.GetKubernetesVersion()
-	vars["apiServers"] = r.getAPIServerEndpoints(kubeforceMachine, kubeforceCluster)
-	vars["apiServerPort"] = "6443"
 	vars["targetArch"] = kfAgent.Spec.System.Arch
-	vars["localhostAlias"] = kubeforceCluster.Spec.ControlPlaneEndpoint.Host
-	ready, err := r.TemplateReconciler.Reconcile(ctx, kubeforceMachine, infrav1.TemplateTypeInstall, vars)
+	vars["systemInfo"] = kfAgent.Status.SystemInfo
+
+	ready, err := r.TemplateReconciler.Reconcile(ctx, kfm, infrav1.TemplateTypeInstall, vars)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -235,34 +230,33 @@ func (r *KubeforceMachineReconciler) reconcileNormal(ctx context.Context, cluste
 	if !config.IsDataAvailable() {
 		if !config.IsControlPlane() && !conditions.IsTrue(cluster, clusterv1.ControlPlaneInitializedCondition) {
 			log.Info("Waiting for the control plane to be initialized")
-			conditions.MarkFalse(kubeforceMachine, bootstrapv1.DataSecretAvailableCondition, clusterv1.WaitingForControlPlaneAvailableReason, clusterv1.ConditionSeverityInfo, "")
+			conditions.MarkFalse(kfm, bootstrapv1.DataSecretAvailableCondition, clusterv1.WaitingForControlPlaneAvailableReason, clusterv1.ConditionSeverityInfo, "")
 			return ctrl.Result{}, nil
 		}
 
 		log.Info("Waiting for the Bootstrap provider controller to set bootstrap data for KubeforceMachine")
-		conditions.MarkFalse(kubeforceMachine, bootstrapv1.DataSecretAvailableCondition, infrav1.WaitingForBootstrapDataReason, clusterv1.ConditionSeverityInfo, "")
+		conditions.MarkFalse(kfm, bootstrapv1.DataSecretAvailableCondition, infrav1.WaitingForBootstrapDataReason, clusterv1.ConditionSeverityInfo, "")
 		return ctrl.Result{}, nil
 	}
-	conditions.MarkTrue(kubeforceMachine, bootstrapv1.DataSecretAvailableCondition)
+	conditions.MarkTrue(kfm, bootstrapv1.DataSecretAvailableCondition)
 
-	ready, err = r.reconcileCloudInitPlaybook(ctx, config, kubeforceMachine, kfAgent)
+	ready, err = r.reconcileCloudInitPlaybook(ctx, config, kfm, kfAgent, vars)
 	if err != nil {
-		conditions.MarkFalse(kubeforceMachine, infrav1.BootstrapExecSucceededCondition, infrav1.BootstrappingReason, clusterv1.ConditionSeverityError, err.Error())
+		conditions.MarkFalse(kfm, infrav1.BootstrapExecSucceededCondition, infrav1.BootstrappingReason, clusterv1.ConditionSeverityError, err.Error())
 		return ctrl.Result{}, err
 	}
 	if !ready {
 		return ctrl.Result{}, nil
 	}
-
 	// Usually a cloud provider will do this, but there is no kubeforce-cloud provider.
 	// Set ProviderID so the Cluster API Machine Controller can pull it
-	err = r.reconcileNodeProviderID(ctx, kubeforceMachine, cluster, agentClient)
+	err = r.reconcileNodeProviderID(ctx, kfm, cluster, kfAgent)
 	if err != nil {
-		conditions.MarkFalse(kubeforceMachine, infrav1.ProviderIDSucceededCondition, infrav1.ProviderIDFailedReason, clusterv1.ConditionSeverityError, err.Error())
+		conditions.MarkFalse(kfm, infrav1.ProviderIDSucceededCondition, infrav1.ProviderIDFailedReason, clusterv1.ConditionSeverityError, err.Error())
 		return ctrl.Result{}, err
 	}
-	conditions.MarkTrue(kubeforceMachine, infrav1.ProviderIDSucceededCondition)
-	kubeforceMachine.Status.Ready = true
+	conditions.MarkTrue(kfm, infrav1.ProviderIDSucceededCondition)
+	kfm.Status.Ready = true
 
 	return ctrl.Result{}, nil
 }
@@ -293,7 +287,7 @@ func (r *KubeforceMachineReconciler) reconcileAgentRef(ctx context.Context, kfMa
 			conditions.MarkFalse(kfMachine, infrav1.AgentProvisionedCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, msg)
 			return ctrl.Result{}, errors.New(msg)
 		}
-		if !agent.IsHealthy(kfAgent) {
+		if !agent.IsReady(kfAgent) {
 			conditions.MarkFalse(kfMachine, infrav1.AgentProvisionedCondition, infrav1.WaitingForAgentReason, clusterv1.ConditionSeverityInfo, "agent is not ready")
 			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 		}
@@ -338,7 +332,7 @@ func (r *KubeforceMachineReconciler) reconcileAgentRef(ctx context.Context, kfMa
 		return ctrl.Result{}, err
 	}
 	kfAgent := findAgent(agents, func(a *infrav1.KubeforceAgent) bool {
-		return a.Labels[infrav1.AgentMachineLabel] == "" && agent.IsHealthy(a)
+		return a.Labels[infrav1.AgentMachineLabel] == "" && agent.IsReady(a)
 	})
 	if kfAgent == nil {
 		conditions.MarkFalse(kfMachine, infrav1.AgentProvisionedCondition, infrav1.WaitingForAgentReason, clusterv1.ConditionSeverityInfo, "no free agent")
@@ -514,7 +508,8 @@ func (r *KubeforceMachineReconciler) reconcileCleaner(ctx context.Context, kfMac
 	return true, nil
 }
 
-func (r *KubeforceMachineReconciler) reconcileCloudInitPlaybook(ctx context.Context, config kubeadm.Config, kfMachine *infrav1.KubeforceMachine, kfAgent *infrav1.KubeforceAgent) (bool, error) {
+func (r *KubeforceMachineReconciler) reconcileCloudInitPlaybook(ctx context.Context, config kubeadm.Config,
+	kfMachine *infrav1.KubeforceMachine, kfAgent *infrav1.KubeforceAgent, vars map[string]interface{}) (bool, error) {
 	pb, err := r.findPlaybookByRole(ctx, kfMachine, "boot")
 	if err != nil {
 		return false, err
@@ -542,7 +537,7 @@ func (r *KubeforceMachineReconciler) reconcileCloudInitPlaybook(ctx context.Cont
 		return false, err
 	}
 
-	pb, err = r.createPlaybook(ctx, kfMachine, kfAgent, playbookData, "boot")
+	pb, err = r.createPlaybook(ctx, kfMachine, kfAgent, playbookData, "boot", vars)
 	if err != nil {
 		return false, err
 	}
@@ -581,7 +576,7 @@ func (r *KubeforceMachineReconciler) findPlaybookByRole(ctx context.Context, kfM
 	return &list.Items[0], nil
 }
 
-func (r *KubeforceMachineReconciler) createPlaybook(ctx context.Context, kfMachine *infrav1.KubeforceMachine, kfAgent *infrav1.KubeforceAgent, data *ansible.Playbook, role string) (*infrav1.Playbook, error) {
+func (r *KubeforceMachineReconciler) createPlaybook(ctx context.Context, kfMachine *infrav1.KubeforceMachine, kfAgent *infrav1.KubeforceAgent, data *ansible.Playbook, role string, vars map[string]interface{}) (*infrav1.Playbook, error) {
 	suffix := fmt.Sprintf("-%s-", role)
 	p := &infrav1.Playbook{
 		ObjectMeta: metav1.ObjectMeta{
@@ -602,6 +597,13 @@ func (r *KubeforceMachineReconciler) createPlaybook(ctx context.Context, kfMachi
 			},
 		},
 	}
+	if len(vars) > 0 {
+		varsData, err := yaml.Marshal(vars)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to marshal variables for Playbook %s", p.Name)
+		}
+		p.Spec.Files["variables.yaml"] = string(varsData)
+	}
 	r.Log.Info("creating playbook", "key", client.ObjectKeyFromObject(p))
 	err := r.Client.Create(ctx, p)
 	if err != nil {
@@ -612,31 +614,31 @@ func (r *KubeforceMachineReconciler) createPlaybook(ctx context.Context, kfMachi
 
 func (r *KubeforceMachineReconciler) getAPIServerEndpoints(kfMachine *infrav1.KubeforceMachine, kubeforceCluster *infrav1.KubeforceCluster) []string {
 	_, isControlPlane := kfMachine.ObjectMeta.Labels[clusterv1.MachineControlPlaneLabelName]
+	apiServers := kubeforceCluster.Status.APIServers
+	if apiServers == nil {
+		apiServers = make([]string, 0)
+	}
 	if !isControlPlane {
-		return kubeforceCluster.Status.APIServers
+		return apiServers
 	}
 
-	for _, apiServer := range kubeforceCluster.Status.APIServers {
-		if apiServer == kfMachine.Status.InternalIP {
-			return kubeforceCluster.Status.APIServers
+	for _, apiServer := range apiServers {
+		if apiServer == kfMachine.Status.DefaultIPAddress {
+			return apiServers
 		}
 	}
-	apiservers := kubeforceCluster.Status.APIServers
-	apiservers = append(apiservers, kfMachine.Status.InternalIP)
-	sort.Strings(apiservers)
-	return apiservers
+
+	apiServers = append(apiServers, kfMachine.Status.DefaultIPAddress)
+	sort.Strings(apiServers)
+	return apiServers
 }
 
 func (r *KubeforceMachineReconciler) reconcileNodeProviderID(ctx context.Context, kfMachine *infrav1.KubeforceMachine,
-	cluster *clusterv1.Cluster, agentClient *clientset.Clientset) error {
+	cluster *clusterv1.Cluster, kfAgent *infrav1.KubeforceAgent) error {
 	if kfMachine.Spec.ProviderID != nil {
 		return nil
 	}
-	info, err := agentClient.AgentV1alpha1().SysInfos().Get(ctx)
-	if err != nil {
-		return err
-	}
-	if info.Spec.Network.Hostname == "" {
+	if kfAgent.Status.SystemInfo == nil || kfAgent.Status.SystemInfo.Network.Hostname == "" {
 		return errors.New("hostname is empty")
 	}
 	remoteClient, err := r.Tracker.GetClient(ctx, util.ObjectKey(cluster))
@@ -644,7 +646,7 @@ func (r *KubeforceMachineReconciler) reconcileNodeProviderID(ctx context.Context
 		return err
 	}
 	node := &corev1.Node{}
-	if err := remoteClient.Get(ctx, client.ObjectKey{Name: info.Spec.Network.Hostname}, node); err != nil {
+	if err := remoteClient.Get(ctx, client.ObjectKey{Name: kfAgent.Status.SystemInfo.Network.Hostname}, node); err != nil {
 		return err
 	}
 

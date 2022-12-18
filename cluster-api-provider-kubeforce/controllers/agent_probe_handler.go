@@ -80,6 +80,16 @@ func (h *agentProbeHandler) UpdateStatus(ctx context.Context, result prober.Resu
 		conditions.MarkFalse(kfAgent, infrav1.HealthyCondition, infrav1.ProbeFailedReason, clusterv1.ConditionSeverityInfo, result.Message)
 	}
 
+	conditions.SetSummary(kfAgent,
+		conditions.WithConditions(
+			infrav1.AgentInstalledCondition,
+			infrav1.HealthyCondition,
+			infrav1.AgentInfoCondition,
+			infrav1.AgentTLSCondition,
+		),
+		conditions.WithStepCounterIf(kfAgent.ObjectMeta.DeletionTimestamp.IsZero()),
+	)
+
 	diff, err := patchObj.Data(kfAgent)
 	if err != nil {
 		ctrl.LoggerFrom(ctx).

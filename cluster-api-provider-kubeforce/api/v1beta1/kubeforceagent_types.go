@@ -273,6 +273,10 @@ type KubeforceAgentStatus struct {
 
 	// AgentInfo is information that describes the installed agent.
 	AgentInfo *AgentInfo `json:"agentInfo,omitempty"`
+
+	// AgentInfo is information that describes the installed agent.
+	// +optional
+	SystemInfo *SystemInfo `json:"systemInfo,omitempty"`
 }
 
 // AgentInfo is information that describes the installed agent.
@@ -285,6 +289,26 @@ type AgentInfo struct {
 	Platform string `json:"platform"`
 	// The build date reported by the agent
 	BuildDate string `json:"buildDate"`
+}
+
+// SystemInfo defines system information from the host.
+type SystemInfo struct {
+	// Network is the network information
+	// +optional
+	Network NetworkInfo `json:"network"`
+}
+
+// NetworkInfo defines the network information.
+type NetworkInfo struct {
+	// Hostname is the current hostname
+	// +optional
+	Hostname string `json:"hostname"`
+	// DefaultIPAddress is an ip address from default route
+	// +optional
+	DefaultIPAddress string `json:"defaultIPAddress"`
+	// DefaultInterfaceName is a network interface from default route
+	// +optional
+	DefaultInterfaceName string `json:"defaultInterfaceName"`
 }
 
 var _ conditions.Setter = &KubeforceAgent{}

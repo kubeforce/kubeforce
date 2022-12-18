@@ -153,8 +153,8 @@ type KubeforceMachineStatus struct {
 	// +optional
 	Playbooks PlaybookConditions `json:"playbooks,omitempty"`
 
-	// InternalIP is an ip address from default interface
-	InternalIP string `json:"internalIP,omitempty"`
+	// DefaultIPAddress is an ip address from default route.
+	DefaultIPAddress string `json:"defaultIPAddress,omitempty"`
 
 	// Conditions defines current service state of the KubeforceMachine.
 	// +optional

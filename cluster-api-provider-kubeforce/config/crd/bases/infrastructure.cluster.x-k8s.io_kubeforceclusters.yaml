@@ -52,6 +52,15 @@ spec:
                 - host
                 - port
                 type: object
+              loadbalancer:
+                description: Loadbalancer describes the desired state of the internal
+                  loadbalancer for KubeforceCluster.
+                properties:
+                  disabled:
+                    description: Disabled can be used to prevent controllers from
+                      creating and using an internal loadbalancer.
+                    type: boolean
+                type: object
             type: object
           status:
             description: KubeforceClusterStatus defines the observed state of KubeforceCluster.
