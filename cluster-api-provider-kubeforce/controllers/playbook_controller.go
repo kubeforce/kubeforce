@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -53,6 +54,10 @@ type PlaybookReconciler struct {
 	Client           client.Client
 	AgentClientCache *agentctrl.ClientCache
 }
+
+const (
+	waitForAgentMsg = "Waiting for the agent to be ready"
+)
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=playbooks,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=playbooks/status,verbs=get;update;patch
@@ -93,6 +98,7 @@ func (r *PlaybookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 	// Always attempt to Patch the Playbook object and status after each reconciliation.
 	defer func() {
+		r.reconcilePhase(playbook)
 		if err := patchPlaybook(ctx, patchHelper, playbook); err != nil {
 			if apierrors.IsNotFound(err) {
 				return
@@ -120,26 +126,54 @@ func (r *PlaybookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 }
 
 func patchPlaybook(ctx context.Context, patchHelper *patch.Helper, playbook *infrav1.Playbook) error {
-	// Always update the readyCondition by summarizing the state of other conditions.
-	// A step counter is added to represent progress during the provisioning process
-	// (instead we are hiding the step counter during the deletion process).
-	conditions.SetSummary(playbook,
-		conditions.WithConditions(
-			infrav1.SynchronizationCondition,
-		),
-		conditions.WithStepCounterIf(playbook.ObjectMeta.DeletionTimestamp.IsZero()),
-	)
-
 	// Patch the object, ignoring conflicts on the conditions owned by this controller.
 	return patchHelper.Patch(
 		ctx,
 		playbook,
 		patch.WithStatusObservedGeneration{},
 		patch.WithOwnedConditions{Conditions: []clusterv1.ConditionType{
-			clusterv1.ReadyCondition,
 			infrav1.SynchronizationCondition,
 		}},
 	)
+}
+
+func (r *PlaybookReconciler) reconcilePhase(pb *infrav1.Playbook) {
+	// Set the phase to "failed" if any of Status.FailureReason or Status.FailureMessage is not-nil.
+	if pb.Status.FailureReason != "" || pb.Status.FailureMessage != "" {
+		pb.Status.Phase = infrav1.PlaybookPhaseFailed
+		return
+	}
+
+	// Set the phase to "deleting" if the deletion timestamp is set.
+	if !pb.DeletionTimestamp.IsZero() {
+		pb.Status.Phase = infrav1.PlaybookPhaseDeleting
+		return
+	}
+
+	extFailedCond := conditions.Get(pb, clusterv1.ConditionType(v1alpha1.PlaybookFailedCondition))
+	if extFailedCond != nil && extFailedCond.Status == corev1.ConditionTrue {
+		pb.Status.Phase = infrav1.PlaybookPhaseFailed
+		pb.Status.FailureReason = infrav1.PlaybookStatusError(extFailedCond.Reason)
+		pb.Status.FailureMessage = extFailedCond.Message
+		return
+	}
+
+	if conditions.IsTrue(pb, clusterv1.ConditionType(v1alpha1.PlaybookExecutionCondition)) {
+		pb.Status.Phase = infrav1.PlaybookPhaseCompleted
+		return
+	}
+
+	if conditions.IsTrue(pb, infrav1.SynchronizationCondition) {
+		pb.Status.Phase = infrav1.PlaybookPhaseSynchronization
+		return
+	}
+
+	if pb.Status.Phase == "" {
+		pb.Status.Phase = infrav1.PlaybookPhaseProvisioning
+		return
+	}
+
+	pb.Status.Phase = infrav1.PlaybookPhaseUnknown
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -207,47 +241,96 @@ func (r *PlaybookReconciler) GetKubeforceAgent(ctx context.Context, playbook *in
 }
 
 func (r *PlaybookReconciler) reconcileDelete(ctx context.Context, playbook *infrav1.Playbook) (ctrl.Result, error) {
-	if err := r.deleteExternalPlaybook(ctx, playbook); err != nil {
-		msg := fmt.Sprintf("unable delete external playbook. err: %v", err.Error())
+	if !controllerutil.ContainsFinalizer(playbook, infrav1.PlaybookFinalizer) {
+		return ctrl.Result{}, nil
+	}
+	if playbook.Status.ExternalName == "" {
+		controllerutil.RemoveFinalizer(playbook, infrav1.PlaybookFinalizer)
+		return ctrl.Result{}, nil
+	}
+	kfAgent, err := r.GetKubeforceAgent(ctx, playbook)
+	if err != nil {
+		playbook.Status.FailureMessage = err.Error()
+		playbook.Status.FailureReason = infrav1.DeletePlaybookError
+		return ctrl.Result{}, err
+	}
+	// wait 60 seconds for the agent to be ready
+	if !agent.IsHealthy(kfAgent) && time.Since(playbook.DeletionTimestamp.Time) < time.Second*60 {
+		msg := waitForAgentMsg
+		playbook.Status.FailureMessage = msg
+		playbook.Status.FailureReason = infrav1.AgentIsNotReadyPlaybookError
+		conditions.MarkFalse(playbook, infrav1.SynchronizationCondition, clusterv1.DeletionFailedReason, clusterv1.ConditionSeverityError, msg)
+		return ctrl.Result{}, nil
+	}
+
+	// wait for forced deletion
+	if !agent.IsHealthy(kfAgent) && kfAgent.DeletionTimestamp.IsZero() {
+		msg := fmt.Sprintf("Waiting for the agent to be ready. If you want to force deletion then remove the %q KubeforceAgent", client.ObjectKeyFromObject(kfAgent))
+		playbook.Status.FailureMessage = msg
+		playbook.Status.FailureReason = infrav1.AgentIsNotReadyPlaybookError
+		conditions.MarkFalse(playbook, infrav1.SynchronizationCondition, clusterv1.DeletionFailedReason, clusterv1.ConditionSeverityError, msg)
+		return ctrl.Result{}, nil
+	}
+
+	if !agent.IsHealthy(kfAgent) {
+		controllerutil.RemoveFinalizer(playbook, infrav1.PlaybookFinalizer)
+		return ctrl.Result{}, nil
+	}
+	result, err := r.reconcileDeleteExternalPlaybook(ctx, playbook, kfAgent)
+	if err != nil {
+		msg := fmt.Sprintf("unable to delete external playbook. err: %v", err.Error())
+		playbook.Status.FailureMessage = msg
+		playbook.Status.FailureReason = infrav1.DeletePlaybookError
 		conditions.MarkFalse(playbook, infrav1.SynchronizationCondition, clusterv1.DeletionFailedReason, clusterv1.ConditionSeverityError, msg)
 		return ctrl.Result{}, err
 	}
-
+	playbook.Status.FailureMessage = ""
+	playbook.Status.FailureReason = ""
+	if !result.IsZero() {
+		return result, nil
+	}
 	controllerutil.RemoveFinalizer(playbook, infrav1.PlaybookFinalizer)
 	return ctrl.Result{}, nil
 }
 
-func (r *PlaybookReconciler) deleteExternalPlaybook(ctx context.Context, playbook *infrav1.Playbook) error {
-	if playbook.Status.ExternalName == "" {
-		return nil
-	}
-	kfAgent, err := r.GetKubeforceAgent(ctx, playbook)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return err
-	}
-	if kfAgent == nil || !agent.IsHealthy(kfAgent) {
-		return nil
-	}
-	clientSet, err := r.AgentClientCache.GetClientSet(ctx, client.ObjectKeyFromObject(kfAgent))
+func (r *PlaybookReconciler) reconcileDeleteExternalPlaybook(ctx context.Context, p *infrav1.Playbook, a *infrav1.KubeforceAgent) (ctrl.Result, error) {
+	clientSet, err := r.AgentClientCache.GetClientSet(ctx, client.ObjectKeyFromObject(a))
 	if err != nil {
-		return err
+		return ctrl.Result{}, err
 	}
-	err = clientSet.AgentV1alpha1().Playbooks().Delete(ctx, playbook.Status.ExternalName, metav1.DeleteOptions{})
+	extPlaybook, err := clientSet.AgentV1alpha1().Playbooks().Get(ctx, p.Status.ExternalName, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil
+			return ctrl.Result{}, nil
 		}
-		return err
+		return ctrl.Result{}, err
 	}
-	return nil
+	if !extPlaybook.DeletionTimestamp.IsZero() {
+		conditions.MarkTrue(p, infrav1.SynchronizationCondition)
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+	err = clientSet.AgentV1alpha1().Playbooks().Delete(ctx, p.Status.ExternalName, metav1.DeleteOptions{})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	conditions.MarkTrue(p, infrav1.SynchronizationCondition)
+	return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 }
 
 func (r *PlaybookReconciler) reconcileNormal(ctx context.Context, playbook *infrav1.Playbook) (ctrl.Result, error) {
 	log := r.Log.WithValues("playbook", capiutil.ObjectKey(playbook))
-	// Fetch the Machine.
+
+	// we don't need to sync if the external playbook has reached the termination phase
+	if conditions.IsTrue(playbook, clusterv1.ConditionType(v1alpha1.PlaybookExecutionCondition)) ||
+		conditions.IsTrue(playbook, clusterv1.ConditionType(v1alpha1.PlaybookFailedCondition)) {
+		return ctrl.Result{}, nil
+	}
+	// Fetch the Agent.
 	kfAgent, err := r.GetKubeforceAgent(ctx, playbook)
 	if err != nil {
-		conditions.MarkFalse(playbook, infrav1.SynchronizationCondition, infrav1.WaitingForAgentReason, clusterv1.ConditionSeverityError, err.Error())
+		playbook.Status.FailureMessage = fmt.Sprintf("unable to get KubeforceAgent err: %v", err)
+		playbook.Status.FailureReason = infrav1.AgentClientPlaybookError
+		conditions.MarkFalse(playbook, infrav1.SynchronizationCondition, infrav1.SynchronizationFailedReason, clusterv1.ConditionSeverityError, err.Error())
 		return ctrl.Result{}, err
 	}
 	playbook.Labels[infrav1.PlaybookAgentNameLabelName] = kfAgent.Name
@@ -257,51 +340,66 @@ func (r *PlaybookReconciler) reconcileNormal(ctx context.Context, playbook *infr
 			*metav1.NewControllerRef(kfAgent, infrav1.GroupVersion.WithKind("KubeforceAgent")),
 		)
 	}
-	// Return early if the object or agent is paused.
-	if annotations.HasPaused(kfAgent) || annotations.HasPaused(playbook) {
+	// Return early if the agent is paused.
+	if annotations.HasPaused(kfAgent) {
 		log.Info("Reconciliation is paused for this object")
 		return ctrl.Result{}, nil
 	}
 
 	if !agent.IsHealthy(kfAgent) {
-		msg := "agent is not ready"
-		conditions.MarkFalse(playbook, infrav1.SynchronizationCondition, infrav1.WaitingForAgentReason, clusterv1.ConditionSeverityInfo, msg)
+		playbook.Status.FailureMessage = waitForAgentMsg
+		playbook.Status.FailureReason = infrav1.AgentIsNotReadyPlaybookError
+		conditions.MarkFalse(playbook, infrav1.SynchronizationCondition, infrav1.WaitingForAgentReason, clusterv1.ConditionSeverityInfo, waitForAgentMsg)
 		return ctrl.Result{}, nil
 	}
 
 	agentClient, err := r.AgentClientCache.GetClientSet(ctx, client.ObjectKeyFromObject(kfAgent))
 	if err != nil {
+		playbook.Status.FailureMessage = fmt.Sprintf("unable to get agent ClisentSet err: %v", err)
+		playbook.Status.FailureReason = infrav1.AgentClientPlaybookError
 		conditions.MarkFalse(playbook, infrav1.SynchronizationCondition, infrav1.SynchronizationFailedReason, clusterv1.ConditionSeverityError, err.Error())
 		return ctrl.Result{}, err
 	}
 	extPlaybook, err := r.findExternalPlaybook(ctx, agentClient, playbook)
 	if err != nil {
+		playbook.Status.FailureMessage = fmt.Sprintf("unable to find external Playbook err: %v", err)
+		playbook.Status.FailureReason = infrav1.ExternalPlaybookError
 		conditions.MarkFalse(playbook, infrav1.SynchronizationCondition, infrav1.SynchronizationFailedReason, clusterv1.ConditionSeverityError, err.Error())
 		return ctrl.Result{}, err
 	}
 	if extPlaybook == nil {
 		if playbook.Status.ExternalName != "" {
 			msg := fmt.Sprintf("extarnal playbook: %s is not found", playbook.Status.ExternalName)
+			playbook.Status.FailureMessage = msg
+			playbook.Status.FailureReason = infrav1.ExternalPlaybookError
 			conditions.MarkFalse(playbook, infrav1.SynchronizationCondition, infrav1.SynchronizationFailedReason, clusterv1.ConditionSeverityError, msg)
 			return ctrl.Result{}, nil
 		}
 		externalPlaybook, err := r.createExternalPlaybook(ctx, agentClient, playbook)
 		if err != nil {
+			playbook.Status.FailureMessage = fmt.Sprintf("unable to create ExternalPlaybook err: %v", err)
+			playbook.Status.FailureReason = infrav1.ExternalPlaybookError
 			conditions.MarkFalse(playbook, infrav1.SynchronizationCondition, infrav1.SynchronizationFailedReason, clusterv1.ConditionSeverityError, err.Error())
 			return ctrl.Result{}, err
 		}
 		playbook.Status.ExternalName = externalPlaybook.Name
-		msg := "external PlaybookDeployment has been created"
-		conditions.MarkFalse(playbook, infrav1.SynchronizationCondition, infrav1.WaitingForObservedGenerationReason, clusterv1.ConditionSeverityInfo, msg)
+		playbook.Status.ExternalPhase = string(externalPlaybook.Status.Phase)
+		playbook.Status.FailureMessage = ""
+		playbook.Status.FailureReason = ""
+		conditions.MarkTrue(playbook, infrav1.SynchronizationCondition)
 		return ctrl.Result{
 			RequeueAfter: 10 * time.Second,
 		}, nil
 	}
 	if playbook.Status.ExternalName != "" && playbook.Status.ExternalName != extPlaybook.Name {
 		msg := fmt.Sprintf("extarnal playbook: %s is not equal to specified %s", extPlaybook.Name, playbook.Status.ExternalName)
+		playbook.Status.FailureMessage = msg
+		playbook.Status.FailureReason = infrav1.ExternalPlaybookError
 		conditions.MarkFalse(playbook, infrav1.SynchronizationCondition, infrav1.SynchronizationFailedReason, clusterv1.ConditionSeverityError, msg)
 		return ctrl.Result{}, nil
 	}
+	playbook.Status.FailureMessage = ""
+	playbook.Status.FailureReason = ""
 	playbook.Status.ExternalName = extPlaybook.Name
 	playbook.Status.ExternalPhase = string(extPlaybook.Status.Phase)
 	appendExternalConditions(playbook, extPlaybook)
@@ -368,7 +466,7 @@ func (r *PlaybookReconciler) createExternalPlaybook(ctx context.Context, agentCl
 	if err != nil {
 		return nil, err
 	}
-	return resultPlaybook, err
+	return resultPlaybook, nil
 }
 
 func (r *PlaybookReconciler) shouldAdopt(p *infrav1.Playbook) bool {

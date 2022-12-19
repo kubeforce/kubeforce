@@ -22,15 +22,15 @@ spec:
       jsonPath: .spec.agentRef.name
       name: Agent
       type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
     - jsonPath: .status.externalPhase
       name: ExternalPhase
       type: string
     - jsonPath: .status.externalName
       name: ExternalName
       type: string
-    - jsonPath: .status.ready
-      name: Ready
-      type: boolean
     - description: Time duration since creation
       jsonPath: .metadata.creationTimestamp
       name: Age
@@ -128,14 +128,28 @@ spec:
                 description: ExternalPhase is the phase of a Playbook, high-level
                   summary of where the Playbook is in its lifecycle.
                 type: string
+              failureMessage:
+                description: FailureMessage will be set in case of a terminal problem
+                  reconciling and will contain a more verbose string suitable for
+                  logging and human consumption.
+                type: string
+              failureReason:
+                description: "FailureReason will be set in case of a terminal problem
+                  and will contain a short value suitable for machine interpretation.
+                  \n This field should not be set for transitive errors that a controller
+                  faces that are expected to be fixed automatically over time (like
+                  service outages), but instead indicate that something is fundamentally
+                  wrong with the Agent's spec or the configuration of the controller,
+                  and that manual intervention is required."
+                type: string
               observedGeneration:
                 description: ObservedGeneration is the latest generation observed
                   by the controller.
                 format: int64
                 type: integer
-              ready:
-                description: Ready denotes that the playbook is completed
-                type: boolean
+              phase:
+                description: Phase represents the current phase of Playbook actuation.
+                type: string
             type: object
         type: object
     served: true

@@ -239,7 +239,8 @@ func (r *TemplateReconciler) reconcilePlaybook(ctx context.Context, obj infrav1.
 	return false, nil
 }
 
-func createLabels(obj infrav1.PlaybookControlObject, role string) map[string]string {
+// CreateLabels creates labels for Playbooks and Playbooks Deployments.
+func CreateLabels(obj infrav1.PlaybookControlObject, role string) map[string]string {
 	return map[string]string{
 		clusterv1.ClusterLabelName:              obj.GetLabels()[clusterv1.ClusterLabelName],
 		infrav1.PlaybookRoleLabelName:           role,
@@ -252,7 +253,7 @@ func createLabels(obj infrav1.PlaybookControlObject, role string) map[string]str
 func (r *TemplateReconciler) findPlaybookByRole(ctx context.Context, obj infrav1.PlaybookControlObject, role string) (*infrav1.Playbook, error) {
 	list := &infrav1.PlaybookList{}
 	listOptions := client.MatchingLabelsSelector{
-		Selector: labels.Set(createLabels(obj, role)).AsSelector(),
+		Selector: labels.Set(CreateLabels(obj, role)).AsSelector(),
 	}
 	err := r.Client.List(ctx, list, listOptions)
 	if err != nil && apierrors.IsNotFound(err) {
@@ -273,7 +274,8 @@ func (r *TemplateReconciler) findPlaybookByRole(ctx context.Context, obj infrav1
 func (r *TemplateReconciler) findPlaybookDeploymentByRole(ctx context.Context, obj infrav1.PlaybookControlObject, role string) (*infrav1.PlaybookDeployment, error) {
 	list := &infrav1.PlaybookDeploymentList{}
 	listOptions := client.MatchingLabelsSelector{
-		Selector: labels.Set(createLabels(obj, role)).AsSelector(),
+		Selector: labels.Set(
+			CreateLabels(obj, role)).AsSelector(),
 	}
 	err := r.Client.List(ctx, list, listOptions)
 	if err != nil && apierrors.IsNotFound(err) {
@@ -293,7 +295,7 @@ func (r *TemplateReconciler) findPlaybookDeploymentByRole(ctx context.Context, o
 
 func (r *TemplateReconciler) updatePlaybookDeployment(ctx context.Context, obj infrav1.PlaybookControlObject, pd *infrav1.PlaybookDeployment, tmpl *infrav1.PlaybookDeploymentTemplate, role string, vars map[string]interface{}) (bool, error) {
 	patchObj := client.MergeFrom(pd.DeepCopy())
-	for key, value := range createLabels(obj, role) {
+	for key, value := range CreateLabels(obj, role) {
 		pd.Labels[key] = value
 	}
 	pd.Spec.AgentRef = corev1.LocalObjectReference{
@@ -333,7 +335,7 @@ func (r *TemplateReconciler) createPlaybookDeployment(ctx context.Context, obj i
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.SimpleNameGenerator.GenerateName(obj.GetName() + suffix),
 			Namespace: obj.GetNamespace(),
-			Labels:    createLabels(obj, role),
+			Labels:    CreateLabels(obj, role),
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion:         infrav1.GroupVersion.String(),
@@ -379,7 +381,7 @@ func (r *TemplateReconciler) createPlaybook(ctx context.Context, obj infrav1.Pla
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.SimpleNameGenerator.GenerateName(obj.GetName() + suffix),
 			Namespace: obj.GetNamespace(),
-			Labels:    createLabels(obj, role),
+			Labels:    CreateLabels(obj, role),
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion:         infrav1.GroupVersion.String(),

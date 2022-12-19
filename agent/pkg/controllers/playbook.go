@@ -85,7 +85,6 @@ func (r *PlaybookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (r
 	err := r.Client.Get(context.Background(), req.NamespacedName, pb)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			// This objects are automatically garbage collected.
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -184,19 +183,18 @@ func (r *PlaybookReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *PlaybookReconciler) reconcileDelete(ctx context.Context, pb *v1alpha1.Playbook) (ctrl.Result, error) {
-	oldPb := pb.DeepCopy()
+	if !controllerutil.ContainsFinalizer(pb, PlaybookFinalizer) {
+		return ctrl.Result{}, nil
+	}
 	dir := filepath.Join(r.PlaybookPath, pb.Name)
 	err := os.RemoveAll(dir)
 	if err != nil {
 		r.Log.Error(err, "unable to remove root directory", "playbook", pb.Name, "dir", dir)
 	}
-	if controllerutil.ContainsFinalizer(pb, PlaybookFinalizer) {
-		controllerutil.RemoveFinalizer(pb, PlaybookFinalizer)
-		err := r.Client.Patch(ctx, pb, client.MergeFrom(oldPb))
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, nil
+	oldPb := pb.DeepCopy()
+	controllerutil.RemoveFinalizer(pb, PlaybookFinalizer)
+	if err := r.Client.Patch(ctx, pb, client.MergeFrom(oldPb)); err != nil {
+		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
