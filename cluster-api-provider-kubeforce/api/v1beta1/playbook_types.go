@@ -56,6 +56,25 @@ type RemotePlaybookSpec struct {
 
 // PlaybookStatus defines the observed state of Playbook.
 type PlaybookStatus struct {
+	// Phase represents the current phase of Playbook actuation.
+	// +optional
+	Phase PlaybookPhase `json:"phase,omitempty"`
+	// FailureReason will be set in case of a terminal problem
+	// and will contain a short value suitable for machine interpretation.
+	//
+	// This field should not be set for transitive errors that a controller
+	// faces that are expected to be fixed automatically over
+	// time (like service outages), but instead indicate that something is
+	// fundamentally wrong with the Agent's spec or the configuration of
+	// the controller, and that manual intervention is required.
+	// +optional
+	FailureReason PlaybookStatusError `json:"failureReason,omitempty"`
+
+	// FailureMessage will be set in case of a terminal problem
+	// reconciling and will contain a more verbose string suitable
+	// for logging and human consumption.
+	// +optional
+	FailureMessage string `json:"failureMessage,omitempty"`
 	// ExternalName is the name of playbook on the node
 	// +optional
 	ExternalName string `json:"externalName,omitempty"`
@@ -63,10 +82,6 @@ type PlaybookStatus struct {
 	// ExternalPhase is the phase of a Playbook, high-level summary of where the Playbook is in its lifecycle.
 	// +optional
 	ExternalPhase string `json:"externalPhase,omitempty"`
-
-	// Ready denotes that the playbook is completed
-	// +optional
-	Ready bool `json:"ready"`
 
 	// Conditions defines current service state of the Playbook.
 	// +optional
@@ -81,9 +96,9 @@ type PlaybookStatus struct {
 // +kubebuilder:resource:path=playbooks,scope=Namespaced,shortName=pb
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Agent",type="string",JSONPath=".spec.agentRef.name",description="KubeforceAgent"
+// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="ExternalPhase",type="string",JSONPath=".status.externalPhase"
 // +kubebuilder:printcolumn:name="ExternalName",type="string",JSONPath=".status.externalName"
-// +kubebuilder:printcolumn:name="Ready",type="boolean",JSONPath=".status.ready"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation"
 
 // Playbook is the Schema for the playbooks API.

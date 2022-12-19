@@ -242,7 +242,6 @@ type Addresses struct {
 // KubeforceAgentStatus defines the observed state of KubeforceAgent.
 type KubeforceAgentStatus struct {
 	// Phase represents the current phase of agent actuation.
-	// E.g. Pending, Running, Terminating, Failed etc.
 	// +optional
 	Phase AgentPhase `json:"phase,omitempty"`
 

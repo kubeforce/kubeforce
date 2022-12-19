@@ -22,6 +22,9 @@ spec:
       jsonPath: .spec.agentRef.name
       name: Agent
       type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
     - jsonPath: .status.externalPhase
       name: ExternalPhase
       type: string
@@ -163,20 +166,37 @@ spec:
                 description: ExternalName is the name of PlaybookDeployment on the
                   node
                 type: string
-              externalObservedGeneration:
-                description: ExternalObservedGeneration is the latest generation observed
-                  in an external PlaybookDeployment.
-                format: int64
-                type: integer
               externalPhase:
                 description: ExternalPhase is the phase of a PlaybookDeployment, high-level
                   summary of where the PlaybookDeployment is in its lifecycle.
+                type: string
+              failureMessage:
+                description: FailureMessage will be set in case of a terminal problem
+                  reconciling and will contain a more verbose string suitable for
+                  logging and human consumption.
+                type: string
+              failureReason:
+                description: "FailureReason will be set in case of a terminal problem
+                  and will contain a short value suitable for machine interpretation.
+                  \n This field should not be set for transitive errors that a controller
+                  faces that are expected to be fixed automatically over time (like
+                  service outages), but instead indicate that something is fundamentally
+                  wrong with the Agent's spec or the configuration of the controller,
+                  and that manual intervention is required."
+                type: string
+              lastSpecChecksum:
+                description: LastSpecChecksum is the last checksum of the PlaybookDeployment
+                  of the updated external object.
                 type: string
               observedGeneration:
                 description: ObservedGeneration is the latest generation observed
                   by the controller.
                 format: int64
                 type: integer
+              phase:
+                description: Phase represents the current phase of PlaybookDeployment
+                  actuation.
+                type: string
             type: object
         type: object
     served: true

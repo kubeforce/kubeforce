@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/storage/names"
 	"k8s.io/utils/pointer"
+	"k8s.io/utils/strings/slices"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	"sigs.k8s.io/cluster-api/controllers/remote"
@@ -288,7 +289,7 @@ func (r *KubeforceMachineReconciler) reconcileAgentRef(ctx context.Context, kfMa
 			return ctrl.Result{}, errors.New(msg)
 		}
 		if !agent.IsReady(kfAgent) {
-			conditions.MarkFalse(kfMachine, infrav1.AgentProvisionedCondition, infrav1.WaitingForAgentReason, clusterv1.ConditionSeverityInfo, "agent is not ready")
+			conditions.MarkFalse(kfMachine, infrav1.AgentProvisionedCondition, infrav1.WaitingForAgentReason, clusterv1.ConditionSeverityInfo, waitForAgentMsg)
 			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 		conditions.MarkTrue(kfMachine, infrav1.AgentProvisionedCondition)
@@ -351,21 +352,35 @@ func (r *KubeforceMachineReconciler) reconcileAgentRef(ctx context.Context, kfMa
 	return ctrl.Result{RequeueAfter: time.Second}, nil
 }
 
-func (r *KubeforceMachineReconciler) reconcileDelete(ctx context.Context, kubeforceMachine *infrav1.KubeforceMachine) (ctrl.Result, error) {
-	if !controllerutil.ContainsFinalizer(kubeforceMachine, infrav1.MachineFinalizer) {
+func (r *KubeforceMachineReconciler) reconcileDelete(ctx context.Context, kfm *infrav1.KubeforceMachine) (ctrl.Result, error) {
+	if !controllerutil.ContainsFinalizer(kfm, infrav1.MachineFinalizer) {
 		return ctrl.Result{}, nil
 	}
-	// Set the AgentProvisionedCondition reporting delete is started, and issue a patch in order to make
-	// this visible to the users.
-	patchHelper, err := patch.NewHelper(kubeforceMachine, r.Client)
-	if err != nil {
+	if kfm.Spec.AgentRef == nil {
+		controllerutil.RemoveFinalizer(kfm, infrav1.MachineFinalizer)
+		return ctrl.Result{}, nil
+	}
+	kfAgent := &infrav1.KubeforceAgent{}
+	if err := r.Client.Get(ctx, client.ObjectKey{
+		Namespace: kfm.Namespace,
+		Name:      kfm.Spec.AgentRef.Name,
+	}, kfAgent); err != nil {
+		conditions.MarkFalse(kfm, infrav1.AgentProvisionedCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, err.Error())
 		return ctrl.Result{}, err
 	}
-	conditions.MarkFalse(kubeforceMachine, infrav1.AgentProvisionedCondition, clusterv1.DeletingReason, clusterv1.ConditionSeverityInfo, "")
-	if err := patchKubeforceMachine(ctx, patchHelper, kubeforceMachine); err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "failed to patch KubeforceMachine")
+	installRoles := make([]string, 0)
+	installRoles = append(installRoles, "boot")
+	if kfm.Spec.PlaybookTemplates != nil {
+		for role, ref := range kfm.Spec.PlaybookTemplates.References {
+			if ref.Type == infrav1.TemplateTypeInstall {
+				installRoles = append(installRoles, role)
+			}
+		}
 	}
-	ready, err := r.reconcileCleaner(ctx, kubeforceMachine)
+	// delete playbooks with type "install"
+	ready, err := r.reconcileDeletePlaybooks(ctx, kfm, func(pb infrav1.Playbook) bool {
+		return slices.Contains(installRoles, pb.Labels[infrav1.PlaybookRoleLabelName])
+	})
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -373,9 +388,127 @@ func (r *KubeforceMachineReconciler) reconcileDelete(ctx context.Context, kubefo
 		return ctrl.Result{}, nil
 	}
 
-	// Machine is deleted so remove the finalizer.
-	controllerutil.RemoveFinalizer(kubeforceMachine, infrav1.MachineFinalizer)
+	// delete playbookDeployments with type "install"
+	ready, err = r.reconcileDeletePlaybookDeployments(ctx, kfm, func(pd infrav1.PlaybookDeployment) bool {
+		return slices.Contains(installRoles, pd.Labels[infrav1.PlaybookRoleLabelName])
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !ready {
+		return ctrl.Result{}, nil
+	}
+	// execute cleanup playbooks
+	if !conditions.IsTrue(kfm, infrav1.CleanupPlaybooksCondition) {
+		ready, err = r.reconcileCleaner(ctx, kfm, kfAgent)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if !ready {
+			return ctrl.Result{}, nil
+		}
+	}
+	// remove all playbooks
+	ready, err = r.reconcileDeletePlaybooks(ctx, kfm, func(pb infrav1.Playbook) bool {
+		return true
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !ready {
+		return ctrl.Result{}, nil
+	}
+	// remove all playbookDeployments
+	ready, err = r.reconcileDeletePlaybookDeployments(ctx, kfm, func(pd infrav1.PlaybookDeployment) bool {
+		return true
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !ready {
+		return ctrl.Result{}, nil
+	}
+
+	delete(kfAgent.Labels, infrav1.AgentMachineLabel)
+	delete(kfAgent.Labels, clusterv1.ClusterLabelName)
+	// use optimistic concurrent update here
+	if err := r.Client.Update(ctx, kfAgent); err != nil {
+		conditions.MarkFalse(kfm, infrav1.AgentProvisionedCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, err.Error())
+		return ctrl.Result{}, err
+	}
+
+	controllerutil.RemoveFinalizer(kfm, infrav1.MachineFinalizer)
 	return ctrl.Result{}, nil
+}
+
+func (r *KubeforceMachineReconciler) reconcileDeletePlaybooks(ctx context.Context, kfm *infrav1.KubeforceMachine,
+	filter func(pb infrav1.Playbook) bool) (bool, error) {
+	pbLabels := playbook.CreateLabels(kfm, "")
+	delete(pbLabels, infrav1.PlaybookRoleLabelName)
+
+	list := &infrav1.PlaybookList{}
+	listOptions := client.MatchingLabelsSelector{
+		Selector: labels.Set(pbLabels).AsSelector(),
+	}
+	err := r.Client.List(ctx, list, listOptions)
+	if err != nil {
+		return false, err
+	}
+
+	found := false
+	for _, pb := range list.Items {
+		pbShallowCopy := pb
+		if !filter(pbShallowCopy) {
+			continue
+		}
+		found = true
+		if !pbShallowCopy.DeletionTimestamp.IsZero() {
+			continue
+		}
+		if err := r.Client.Delete(ctx, &pbShallowCopy); err != nil {
+			return false, err
+		}
+	}
+	if !found {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (r *KubeforceMachineReconciler) reconcileDeletePlaybookDeployments(ctx context.Context, kfm *infrav1.KubeforceMachine,
+	filter func(pb infrav1.PlaybookDeployment) bool) (bool, error) {
+	pbLabels := playbook.CreateLabels(kfm, "")
+	delete(pbLabels, infrav1.PlaybookRoleLabelName)
+
+	list := &infrav1.PlaybookDeploymentList{}
+	listOptions := client.MatchingLabelsSelector{
+		Selector: labels.Set(pbLabels).AsSelector(),
+	}
+	err := r.Client.List(ctx, list, listOptions)
+	if err != nil {
+		return false, err
+	}
+
+	found := false
+	for _, pd := range list.Items {
+		pdShallowCopy := pd
+		if !filter(pdShallowCopy) {
+			continue
+		}
+		found = true
+		if !pdShallowCopy.DeletionTimestamp.IsZero() {
+			continue
+		}
+		if err := r.Client.Delete(ctx, &pdShallowCopy); err != nil {
+			return false, err
+		}
+	}
+	if !found {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // KubeforceClusterToKubeforceMachines is a handler.ToRequestsFunc to be used to enqeue
@@ -467,43 +600,31 @@ func (r *KubeforceMachineReconciler) SetupWithManager(logger logr.Logger, mgr ct
 	)
 }
 
-func (r *KubeforceMachineReconciler) reconcileCleaner(ctx context.Context, kfMachine *infrav1.KubeforceMachine) (bool, error) {
-	if kfMachine.Spec.AgentRef == nil {
-		return true, nil
-	}
-	kfAgent := &infrav1.KubeforceAgent{}
-	if err := r.Client.Get(ctx, client.ObjectKey{
-		Namespace: kfMachine.Namespace,
-		Name:      kfMachine.Spec.AgentRef.Name,
-	}, kfAgent); err != nil {
-		if apierrors.IsNotFound(err) {
-			return true, nil
-		}
-		conditions.MarkFalse(kfMachine, infrav1.CleanupPlaybooksCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, err.Error())
-		return false, err
-	}
-	// wait 20 seconds for the agent to be ready
-	if !agent.IsHealthy(kfAgent) && time.Since(kfMachine.DeletionTimestamp.Time) < time.Second*20 {
-		conditions.MarkFalse(kfMachine, infrav1.CleanupPlaybooksCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, "Wait for agent ready")
+func (r *KubeforceMachineReconciler) reconcileCleaner(ctx context.Context, kfMachine *infrav1.KubeforceMachine, kfAgent *infrav1.KubeforceAgent) (bool, error) {
+	// wait 60 seconds for the agent to be ready
+	if !agent.IsHealthy(kfAgent) && time.Since(kfMachine.DeletionTimestamp.Time) < time.Second*60 {
+		conditions.MarkFalse(kfMachine, infrav1.CleanupPlaybooksCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, "Wait for agent to be ready")
 		return false, nil
 	}
 
-	if agent.IsHealthy(kfAgent) {
-		ready, err := r.TemplateReconciler.Reconcile(ctx, kfMachine, infrav1.TemplateTypeDelete, nil)
-		if err != nil {
-			return false, err
-		}
-		if !ready {
-			return false, nil
-		}
+	// wait for force deletion
+	if !agent.IsHealthy(kfAgent) && kfAgent.DeletionTimestamp.IsZero() {
+		msg := fmt.Sprintf("Waiting for the agent to be ready. If you want to force deletion then remove the %q KubeforceAgent", client.ObjectKeyFromObject(kfAgent))
+		conditions.MarkFalse(kfMachine, infrav1.CleanupPlaybooksCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, msg)
+		return false, nil
 	}
 
-	delete(kfAgent.Labels, infrav1.AgentMachineLabel)
-	delete(kfAgent.Labels, clusterv1.ClusterLabelName)
-	// use optimistic concurrent update here
-	if err := r.Client.Update(ctx, kfAgent); err != nil {
-		conditions.MarkFalse(kfMachine, infrav1.CleanupPlaybooksCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, err.Error())
+	if !agent.IsHealthy(kfAgent) {
+		conditions.MarkTrue(kfMachine, infrav1.CleanupPlaybooksCondition)
+		return true, nil
+	}
+
+	ready, err := r.TemplateReconciler.Reconcile(ctx, kfMachine, infrav1.TemplateTypeDelete, nil)
+	if err != nil {
 		return false, err
+	}
+	if !ready {
+		return false, nil
 	}
 	return true, nil
 }
@@ -545,20 +666,10 @@ func (r *KubeforceMachineReconciler) reconcileCloudInitPlaybook(ctx context.Cont
 	return false, nil
 }
 
-func playbookLabelsByMachine(kfMachine *infrav1.KubeforceMachine, role string) map[string]string {
-	return map[string]string{
-		clusterv1.ClusterLabelName:              kfMachine.Labels[clusterv1.ClusterLabelName],
-		infrav1.PlaybookRoleLabelName:           role,
-		infrav1.PlaybookAgentNameLabelName:      kfMachine.Spec.AgentRef.Name,
-		infrav1.PlaybookControllerNameLabelName: kfMachine.Name,
-		infrav1.PlaybookControllerKindLabelName: infrav1.GroupVersion.Group + ".KubeforceMachine",
-	}
-}
-
 func (r *KubeforceMachineReconciler) findPlaybookByRole(ctx context.Context, kfMachine *infrav1.KubeforceMachine, role string) (*infrav1.Playbook, error) {
 	list := &infrav1.PlaybookList{}
 	listOptions := client.MatchingLabelsSelector{
-		Selector: labels.Set(playbookLabelsByMachine(kfMachine, role)).AsSelector(),
+		Selector: labels.Set(playbook.CreateLabels(kfMachine, role)).AsSelector(),
 	}
 	err := r.Client.List(ctx, list, listOptions)
 	if err != nil && apierrors.IsNotFound(err) {
@@ -582,7 +693,7 @@ func (r *KubeforceMachineReconciler) createPlaybook(ctx context.Context, kfMachi
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.SimpleNameGenerator.GenerateName(kfMachine.Name + suffix),
 			Namespace: kfMachine.Namespace,
-			Labels:    playbookLabelsByMachine(kfMachine, role),
+			Labels:    playbook.CreateLabels(kfMachine, role),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(kfMachine, infrav1.GroupVersion.WithKind("KubeforceMachine")),
 			},

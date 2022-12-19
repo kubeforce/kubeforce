@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"sort"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -193,8 +194,8 @@ func (r *PlaybookDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error 
 }
 
 func (r *PlaybookDeploymentReconciler) reconcileDelete(ctx context.Context, pd *v1alpha1.PlaybookDeployment) (ctrl.Result, error) {
-	if controllerutil.ContainsFinalizer(pd, PlaybookDeploymentFinalizer) {
-		controllerutil.RemoveFinalizer(pd, PlaybookDeploymentFinalizer)
+	if !controllerutil.ContainsFinalizer(pd, PlaybookDeploymentFinalizer) {
+		return ctrl.Result{}, nil
 	}
 	playbooks, err := r.getPlaybooksForDeployment(ctx, pd)
 	if err != nil {
@@ -206,6 +207,15 @@ func (r *PlaybookDeploymentReconciler) reconcileDelete(ctx context.Context, pd *
 				return ctrl.Result{}, errors.WithStack(err)
 			}
 		}
+	}
+	// wait until all playbooks are deleted
+	if len(playbooks) == 0 {
+		return ctrl.Result{RequeueAfter: 3 * time.Second}, nil
+	}
+	oldPd := pd.DeepCopy()
+	controllerutil.RemoveFinalizer(pd, PlaybookDeploymentFinalizer)
+	if err := r.Client.Patch(ctx, pd, client.MergeFrom(oldPd)); err != nil {
+		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
@@ -222,7 +232,7 @@ func (r *PlaybookDeploymentReconciler) createPlaybook(ctx context.Context, pd *v
 					Kind:       "PlaybookDeployment",
 					Name:       pd.Name,
 					UID:        pd.UID,
-					Controller: pointer.BoolPtr(true),
+					Controller: pointer.Bool(true),
 				},
 			},
 		},

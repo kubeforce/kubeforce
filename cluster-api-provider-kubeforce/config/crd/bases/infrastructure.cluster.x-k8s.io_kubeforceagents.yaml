@@ -373,7 +373,6 @@ spec:
                 type: integer
               phase:
                 description: Phase represents the current phase of agent actuation.
-                  E.g. Pending, Running, Terminating, Failed etc.
                 type: string
               systemInfo:
                 description: AgentInfo is information that describes the installed
