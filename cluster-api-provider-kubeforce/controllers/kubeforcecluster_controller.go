@@ -70,6 +70,9 @@ type KubeforceClusterReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop.
 func (r *KubeforceClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, rerr error) {
+	if ctx.Err() != nil {
+		return reconcile.Result{}, nil
+	}
 	log := ctrl.LoggerFrom(ctx)
 
 	// Fetch the KubeforceCluster instance
@@ -106,7 +109,8 @@ func (r *KubeforceClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 	// Always attempt to Patch the KubeforceCluster object and status after each reconciliation.
 	defer func() {
-		if err := patchKubeforceCluster(ctx, patchHelper, kubeforceCluster); err != nil {
+		// We want to save the last status even if the context was closed.
+		if err := patchKubeforceCluster(context.Background(), patchHelper, kubeforceCluster); err != nil {
 			log.Error(err, "failed to patch KubeforceCluster")
 			if rerr == nil {
 				rerr = err
@@ -189,11 +193,11 @@ func (r *KubeforceClusterReconciler) reconcileLoadbalancer(ctx context.Context, 
 func (r *KubeforceClusterReconciler) getExternalAddresses(ctx context.Context, machines []infrav1.KubeforceMachine) ([]string, error) {
 	adresses := make([]string, 0, len(machines))
 	for _, kfMachine := range machines {
-		if kfMachine.Spec.AgentRef != nil {
+		if kfMachine.Status.AgentRef != nil {
 			kfAgent := &infrav1.KubeforceAgent{}
 			if err := r.Client.Get(ctx, client.ObjectKey{
 				Namespace: kfMachine.Namespace,
-				Name:      kfMachine.Spec.AgentRef.Name,
+				Name:      kfMachine.Status.AgentRef.Name,
 			}, kfAgent); err != nil {
 				if apierrors.IsNotFound(err) {
 					continue
@@ -472,7 +476,7 @@ func (r *KubeforceClusterReconciler) fillLBDeployment(d *appsv1.Deployment,
 
 func (r *KubeforceClusterReconciler) lbLabels(clusterName string) map[string]string {
 	return map[string]string{
-		clusterv1.ClusterLabelName:    clusterName,
+		clusterv1.ClusterNameLabel:    clusterName,
 		"app.kubernetes.io/name":      "traefik",
 		"app.kubernetes.io/component": "loadbalancer",
 	}
@@ -580,7 +584,7 @@ func (r *KubeforceClusterReconciler) listDescendants(ctx context.Context, cluste
 
 	listOptions := []client.ListOption{
 		client.InNamespace(cluster.Namespace),
-		client.MatchingLabels(map[string]string{clusterv1.ClusterLabelName: cluster.Name}),
+		client.MatchingLabels(map[string]string{clusterv1.ClusterNameLabel: cluster.Name}),
 	}
 
 	if err := r.Client.List(ctx, &descendants.machines, listOptions...); err != nil {
@@ -645,8 +649,8 @@ func (r *KubeforceClusterReconciler) getControlPlaneMachineList(ctx context.Cont
 		ml,
 		client.InNamespace(cluster.Namespace),
 		client.MatchingLabels{
-			clusterv1.MachineControlPlaneLabelName: "",
-			clusterv1.ClusterLabelName:             cluster.Name,
+			clusterv1.MachineControlPlaneLabel: "",
+			clusterv1.ClusterNameLabel:         cluster.Name,
 		},
 	); err != nil {
 		return nil, errors.Wrap(err, "failed to list machines")
@@ -670,7 +674,7 @@ func (r *KubeforceClusterReconciler) KubeforceMachineToKubeforceCluster(o client
 		r.Log.Info(fmt.Sprintf("Expected a KubeforceMachine but got a %T", o))
 		return nil
 	}
-	_, isControlPlane := m.ObjectMeta.Labels[clusterv1.MachineControlPlaneLabelName]
+	_, isControlPlane := m.ObjectMeta.Labels[clusterv1.MachineControlPlaneLabel]
 	infraClusterName := m.Labels[infrav1.KubeforceClusterLabelName]
 	if isControlPlane && infraClusterName != "" {
 		return []ctrl.Request{{NamespacedName: client.ObjectKey{Namespace: m.Namespace, Name: infraClusterName}}}

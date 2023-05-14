@@ -13,6 +13,8 @@ version = 2
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
   # set default runtime handler to v2, which has a per-pod shim
   runtime_type = "io.containerd.runc.v2"
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+  SystemdCgroup = true
 
 # Setup a runtime with the magic name ("test-handler") used for Kubernetes
 # runtime class tests ...
@@ -21,7 +23,7 @@ version = 2
 
 [plugins."io.containerd.grpc.v1.cri"]
   # use fixed sandbox image
-  sandbox_image = "k8s.gcr.io/pause:3.5"
+  sandbox_image = "k8s.gcr.io/pause:3.9"
   # allow hugepages controller to be missing
   # see https://github.com/containerd/cri/pull/1501
   tolerate_missing_hugepages_controller = true

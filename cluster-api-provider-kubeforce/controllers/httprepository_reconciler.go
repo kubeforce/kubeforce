@@ -55,6 +55,9 @@ func (r *HTTPRepositoryReconciler) SetupWithManager(mgr ctrl.Manager, options co
 
 // Reconcile reconciles HTTPRepository and removes caches.
 func (r *HTTPRepositoryReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	if ctx.Err() != nil {
+		return reconcile.Result{}, nil
+	}
 	log := ctrl.LoggerFrom(ctx)
 	log.V(4).Info("Reconciling")
 
@@ -75,14 +78,19 @@ func (r *HTTPRepositoryReconciler) Reconcile(ctx context.Context, req reconcile.
 
 	// Add finalizer first if not exist to avoid the race condition between init and delete
 	if !controllerutil.ContainsFinalizer(repo, infrav1.HTTPRepositoryFinalizer) {
+		patch := client.MergeFrom(repo)
 		controllerutil.AddFinalizer(repo, infrav1.HTTPRepositoryFinalizer)
+		err := r.Client.Patch(ctx, repo, patch)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{}, nil
 	}
 
 	return reconcile.Result{}, nil
 }
 
-func (r *HTTPRepositoryReconciler) reconcileDelete(_ context.Context, repo *infrav1.HTTPRepository) (ctrl.Result, error) {
+func (r *HTTPRepositoryReconciler) reconcileDelete(ctx context.Context, repo *infrav1.HTTPRepository) (ctrl.Result, error) {
 	if !controllerutil.ContainsFinalizer(repo, infrav1.HTTPRepositoryFinalizer) {
 		return ctrl.Result{}, nil
 	}
@@ -90,6 +98,11 @@ func (r *HTTPRepositoryReconciler) reconcileDelete(_ context.Context, repo *infr
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	patch := client.MergeFrom(repo)
 	controllerutil.RemoveFinalizer(repo, infrav1.HTTPRepositoryFinalizer)
+	err = r.Client.Patch(ctx, repo, patch)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	return ctrl.Result{}, nil
 }

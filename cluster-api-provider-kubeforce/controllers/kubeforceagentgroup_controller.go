@@ -21,6 +21,8 @@ import (
 	"context"
 	"fmt"
 
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -52,6 +54,9 @@ type KubeforceAgentGroupReconciler struct {
 
 // Reconcile reconciles KubeforceAgentGroup.
 func (r *KubeforceAgentGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, rerr error) {
+	if ctx.Err() != nil {
+		return reconcile.Result{}, nil
+	}
 	log := ctrl.LoggerFrom(ctx)
 
 	// Fetch the KubeforceAgentGroup instance.
@@ -73,7 +78,8 @@ func (r *KubeforceAgentGroupReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	// Always attempt to Patch the KubeforceAgentGroup object and status after each reconciliation.
 	defer func() {
-		if err := patchKubeforceAgentGroup(ctx, patchHelper, agentGroup); err != nil {
+		// We want to save the last status even if the context was closed.
+		if err := patchKubeforceAgentGroup(context.Background(), patchHelper, agentGroup); err != nil {
 			log.Error(err, "failed to patch KubeforceAgentGroup")
 			if rerr == nil {
 				rerr = err

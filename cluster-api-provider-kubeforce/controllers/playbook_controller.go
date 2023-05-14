@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -65,6 +67,9 @@ const (
 
 // Reconcile handles Playbook events.
 func (r *PlaybookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, rerr error) {
+	if ctx.Err() != nil {
+		return reconcile.Result{}, nil
+	}
 	log := r.Log.WithValues("playbook", req)
 	playbook := &infrav1.Playbook{}
 	if err := r.Client.Get(ctx, req.NamespacedName, playbook); err != nil {
@@ -99,7 +104,8 @@ func (r *PlaybookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	// Always attempt to Patch the Playbook object and status after each reconciliation.
 	defer func() {
 		r.reconcilePhase(playbook)
-		if err := patchPlaybook(ctx, patchHelper, playbook); err != nil {
+		// We want to save the last status even if the context was closed.
+		if err := patchPlaybook(context.Background(), patchHelper, playbook); err != nil {
 			if apierrors.IsNotFound(err) {
 				return
 			}
@@ -355,7 +361,7 @@ func (r *PlaybookReconciler) reconcileNormal(ctx context.Context, playbook *infr
 
 	agentClient, err := r.AgentClientCache.GetClientSet(ctx, client.ObjectKeyFromObject(kfAgent))
 	if err != nil {
-		playbook.Status.FailureMessage = fmt.Sprintf("unable to get agent ClisentSet err: %v", err)
+		playbook.Status.FailureMessage = fmt.Sprintf("unable to get agent ClientSet err: %v", err)
 		playbook.Status.FailureReason = infrav1.AgentClientPlaybookError
 		conditions.MarkFalse(playbook, infrav1.SynchronizationCondition, infrav1.SynchronizationFailedReason, clusterv1.ConditionSeverityError, err.Error())
 		return ctrl.Result{}, err

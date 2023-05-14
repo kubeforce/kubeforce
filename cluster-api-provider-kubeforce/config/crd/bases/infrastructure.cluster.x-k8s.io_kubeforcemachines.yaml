@@ -23,7 +23,7 @@ spec:
       name: Cluster
       type: string
     - description: KubeforceAgent
-      jsonPath: .spec.agentRef.name
+      jsonPath: .status.agentRef.name
       name: Agent
       type: string
     - description: KubeforceMachine ready state
@@ -54,16 +54,6 @@ spec:
           spec:
             description: KubeforceMachineSpec defines the desired state of KubeforceMachine.
             properties:
-              agentRef:
-                description: AgentRef is a reference to the agent resource that holds
-                  the details for provisioning infrastructure for a cluster.
-                properties:
-                  name:
-                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      TODO: Add other useful fields. apiVersion, kind, uid?'
-                    type: string
-                type: object
-                x-kubernetes-map-type: atomic
               agentSelector:
                 description: Label selector for agents. If agentRef is empty controller
                   will find free agent by this selector and update agentRef field.
@@ -168,6 +158,16 @@ spec:
           status:
             description: KubeforceMachineStatus defines the observed state of KubeforceMachine.
             properties:
+              agentRef:
+                description: AgentRef is a reference to the agent resource that holds
+                  the details for provisioning infrastructure for a cluster.
+                properties:
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      TODO: Add other useful fields. apiVersion, kind, uid?'
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
               conditions:
                 description: Conditions defines current service state of the KubeforceMachine.
                 items:

@@ -7,7 +7,7 @@
     apiServerPort: 6443
     targetArch: amd64
     targetOS: linux
-    traefikVersion: v2.6.3
+    traefikVersion: v2.10.1
     downloadDir: /opt/kubeforce/download
     bindPort: 9443
     traefikTarGzUrl: "https://github.com/traefik/traefik/releases/download/{{ traefikVersion }}/traefik_{{ traefikVersion }}_{{ targetOS }}_{{ targetArch }}.tar.gz"

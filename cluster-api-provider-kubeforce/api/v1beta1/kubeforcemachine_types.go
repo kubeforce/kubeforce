@@ -39,7 +39,7 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels['cluster\\.x-k8s\\.io/cluster-name']",description="Cluster"
-// +kubebuilder:printcolumn:name="Agent",type="string",JSONPath=".spec.agentRef.name",description="KubeforceAgent"
+// +kubebuilder:printcolumn:name="Agent",type="string",JSONPath=".status.agentRef.name",description="KubeforceAgent"
 // +kubebuilder:printcolumn:name="Ready",type="boolean",JSONPath=".status.ready",description="KubeforceMachine ready state"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of KubeforceMachine"
 
@@ -56,7 +56,7 @@ type KubeforceMachine struct {
 func (in *KubeforceMachine) GetAgent() types.NamespacedName {
 	return types.NamespacedName{
 		Namespace: in.Namespace,
-		Name:      in.Spec.AgentRef.Name,
+		Name:      in.Status.AgentRef.Name,
 	}
 }
 
@@ -80,11 +80,6 @@ type KubeforceMachineSpec struct {
 	// ProviderID will be the container name in ProviderID format (kf://<cluster>-<machine>)
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
-
-	// AgentRef is a reference to the agent resource that holds the details
-	// for provisioning infrastructure for a cluster.
-	// +optional
-	AgentRef *corev1.LocalObjectReference `json:"agentRef,omitempty"`
 
 	// Label selector for agents. If agentRef is empty controller
 	// will find free agent by this selector and update agentRef field.
@@ -148,6 +143,11 @@ type KubeforceMachineStatus struct {
 	// Ready denotes that the machine is ready
 	// +optional
 	Ready bool `json:"ready"`
+
+	// AgentRef is a reference to the agent resource that holds the details
+	// for provisioning infrastructure for a cluster.
+	// +optional
+	AgentRef *corev1.LocalObjectReference `json:"agentRef,omitempty"`
 
 	// Playbooks are playbooks that are controlled by KubeforceMachine.
 	// +optional

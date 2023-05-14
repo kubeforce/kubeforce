@@ -213,13 +213,6 @@ func setupReconcilers(ctx context.Context, mgr ctrl.Manager) {
 		setupLog.Error(err, "unable to create controller", "controller", "KubeforceMachine")
 		os.Exit(1)
 	}
-	if err = (&controllers.KubeforceMachinePoolReconciler{
-		Client: mgr.GetClient(),
-		Log:    logger.WithName("kf-machine-pool-controller"),
-	}).SetupWithManager(logger, mgr, controller.Options{}); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "KubeforceMachinePool")
-		os.Exit(1)
-	}
 	if err = (&controllers.PlaybookReconciler{
 		Client:           mgr.GetClient(),
 		Log:              logger.WithName("playbook-controller"),

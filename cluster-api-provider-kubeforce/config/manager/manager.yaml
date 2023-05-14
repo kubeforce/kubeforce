@@ -35,30 +35,35 @@ spec:
         volumeMounts:
           - mountPath: /var/lib/kubeforce
             name: cache-volume
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8081
-          initialDelaySeconds: 15
-          periodSeconds: 20
+#        livenessProbe:
+#          httpGet:
+#            path: /healthz
+#            port: 8081
+#          initialDelaySeconds: 15
+#          periodSeconds: 20
         readinessProbe:
           httpGet:
             path: /readyz
             port: 8081
           initialDelaySeconds: 5
           periodSeconds: 10
-        resources:
-          limits:
-            cpu: 100m
-            memory: 30Mi
-          requests:
-            cpu: 100m
-            memory: 20Mi
+#        resources:
+#          limits:
+#            cpu: 100m
+#            memory: 30Mi
+#          requests:
+#            cpu: 100m
+#            memory: 20Mi
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
       securityContext:
 #        runAsNonRoot: true
         fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
       volumes:
         - name: cache-volume
           emptyDir: {}
