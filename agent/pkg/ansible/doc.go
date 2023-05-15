@@ -14,5 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package ansible implements the installation of ansible on the host
+// Package ansible implements the installation of ansible on the host.
 package ansible

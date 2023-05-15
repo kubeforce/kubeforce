@@ -25,10 +25,9 @@ TOOLS_BIN_DIR := $(abspath $(BUILD_DIR)/tools/bin)
 #
 # Tools.
 #
-GOLINTCI_LINT_VER := v1.50.1
-GOLINTCI_LINT_BIN := golangci-lint
-GOLINTCI_LINT := $(abspath $(TOOLS_BIN_DIR)/$(GOLINTCI_LINT_BIN)-$(GOLINTCI_LINT_VER))
-GOLINTCI_LINT_PKG := github.com/golangci/golangci-lint/cmd/golangci-lint
+GOLANGCI_LINT_BIN := golangci-lint
+GOLANGCI_LINT := $(abspath $(TOOLS_BIN_DIR)/$(GOLANGCI_LINT_BIN))
+
 
 HADOLINT_VER := v2.12.0
 HADOLINT_FAILURE_THRESHOLD = warning
@@ -141,10 +140,13 @@ generate-modules: ## Run go mod tidy to ensure modules are up to date
 ##@ lint and verify:
 
 .PHONY: lint
-lint: $(GOLINTCI_LINT) ## Lint packages on host
-	$(GOLINTCI_LINT) run -v --timeout 10m ./...
-	cd $(INTERNAL_TOOLS_DIR); $(GOLINTCI_LINT) run -v --timeout 10m ./...
+lint: $(GOLANGCI_LINT) ## Lint packages on host
+	$(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS)
+	cd $(INTERNAL_TOOLS_DIR); $(GOLANGCI_LINT) run -v --timeout 10m ./...
 
+.PHONY: lint-fix
+lint-fix: $(GOLANGCI_LINT) ## Lint the codebase and run auto-fixers if supported by the linter
+	GOLANGCI_LINT_EXTRA_ARGS=--fix $(MAKE) lint
 
 ALL_VERIFY_CHECKS = modules boilerplate shellcheck modules dockerfiles gen
 
@@ -187,9 +189,11 @@ verify-dockerfiles: ## Verify dockerfiles
 
 ##@ hack/tools:
 
-.PHONY: $(GOLINTCI_LINT_BIN)
-$(GOLINTCI_LINT_BIN): $(GOLINTCI_LINT) ## Build a local copy of golintci-lint.
+.PHONY: $(GOLANGCI_LINT_BIN)
+$(GOLANGCI_LINT_BIN): $(GOLANGCI_LINT) ## Build a local copy of golangci-lint
 
-$(GOLINTCI_LINT): # Build golintci-lint from tools folder.
-	CGO_ENABLED=0 GOBIN=$(TOOLS_BIN_DIR) go install $(GOLINTCI_LINT_PKG)@$(GOLINTCI_LINT_VER)
-	mv $(TOOLS_BIN_DIR)/$(GOLINTCI_LINT_BIN) $(GOLINTCI_LINT)
+
+$(GOLANGCI_LINT): .github/workflows/golangci-lint.yml # Download golangci-lint using hack script into tools folder.
+	hack/ensure-golangci-lint.sh \
+		-b $(TOOLS_BIN_DIR) \
+		$(shell cat .github/workflows/golangci-lint.yml | grep [[:space:]]version: | sed 's/.*version: //')

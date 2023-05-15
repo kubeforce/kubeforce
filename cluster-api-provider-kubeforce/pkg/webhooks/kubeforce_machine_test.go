@@ -181,7 +181,8 @@ func TestKubeforceMachineValidateUpdate(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "default",
 			},
-			Spec: infrav1.KubeforceMachineSpec{
+			Spec: infrav1.KubeforceMachineSpec{},
+			Status: infrav1.KubeforceMachineStatus{
 				AgentRef: &corev1.LocalObjectReference{
 					Name: "default-agent",
 				},
@@ -210,7 +211,7 @@ func TestKubeforceMachineValidateUpdate(t *testing.T) {
 			name:         "should reject objects with different spec",
 			oldKfMachine: getKubeforceMachine(nil),
 			newKfMachine: getKubeforceMachine(func(ma *infrav1.KubeforceMachine) {
-				ma.Spec.AgentRef.Name = ""
+				ma.Status.AgentRef.Name = ""
 			}),
 			expectErr: true,
 		},

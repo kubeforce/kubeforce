@@ -56,6 +56,7 @@ func (r *HTTPRepositoryReconciler) SetupWithManager(mgr ctrl.Manager, options co
 // Reconcile reconciles HTTPRepository and removes caches.
 func (r *HTTPRepositoryReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	if ctx.Err() != nil {
+		//nolint:nilerr
 		return reconcile.Result{}, nil
 	}
 	log := ctrl.LoggerFrom(ctx)

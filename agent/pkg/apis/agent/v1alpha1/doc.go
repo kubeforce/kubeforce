@@ -16,7 +16,7 @@ limitations under the License.
 
 // Api versions allow the api contract for a resource to be changed while keeping
 // backward compatibility by support multiple concurrent versions
-// of the same resource
+// of the same resource.
 
 // Package v1alpha1 is the v1alpha1 version of the API.
 // +k8s:openapi-gen=true

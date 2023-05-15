@@ -25,7 +25,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -60,7 +59,6 @@ type clientHolder struct {
 	clientSet *agentclient.Clientset
 	cache     *stoppableCache
 	client    client.Client
-	watches   sets.String
 }
 
 // GetClientSet returns a cached client for the given agent.
@@ -218,6 +216,5 @@ func (c *ClientCache) newClientHolder(ctx context.Context, agentKey client.Objec
 		clientSet: clientset,
 		cache:     stCache,
 		client:    delegatingClient,
-		watches:   sets.NewString(),
 	}, nil
 }

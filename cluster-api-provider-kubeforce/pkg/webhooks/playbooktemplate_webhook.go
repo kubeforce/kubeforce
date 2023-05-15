@@ -47,12 +47,12 @@ type PlaybookTemplate struct {
 var _ webhook.CustomValidator = &PlaybookTemplate{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (webhook *PlaybookTemplate) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (webhook *PlaybookTemplate) ValidateCreate(_ context.Context, obj runtime.Object) error {
 	return nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (webhook *PlaybookTemplate) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+func (webhook *PlaybookTemplate) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) error {
 	return nil
 }
 

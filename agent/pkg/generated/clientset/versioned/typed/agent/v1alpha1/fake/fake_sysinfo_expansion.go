@@ -22,6 +22,6 @@ import (
 	"k3f.io/kubeforce/agent/pkg/apis/agent/v1alpha1"
 )
 
-func (f FakeSysInfos) Get(ctx context.Context) (*v1alpha1.SysInfo, error) {
+func (f FakeSysInfos) Get(_ context.Context) (*v1alpha1.SysInfo, error) {
 	return nil, nil
 }

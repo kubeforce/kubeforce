@@ -55,7 +55,7 @@ func Install(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 	if err := createService(ctx); err != nil {
-		return err
+		return errors.Wrap(err, "failed to create service")
 	}
 	return nil
 }
@@ -76,7 +76,7 @@ func copyBinary() error {
 		return err
 	}
 	if err := os.Chown(agentPath, 0, 0); err != nil {
-		return err
+		return errors.Wrap(err, "failed to change owner of agent binary")
 	}
 	return nil
 }
@@ -138,7 +138,7 @@ func saveConfig(cfg config.Config) error {
 		return err
 	}
 	if err := os.Chmod(configPath, 0o600); err != nil {
-		return err
+		return errors.Wrap(err, "failed to change permissions of config file")
 	}
 	return nil
 }
