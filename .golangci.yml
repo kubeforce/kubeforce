@@ -1,3 +1,14 @@
+run:
+  timeout: 10m
+  go: "1.20"
+  build-tags:
+    - tools
+    - e2e
+  skip-files:
+    - "zz_generated.*\\.go$"
+    - "vendored_openapi\\.go$"
+  allow-parallel-runners: true
+
 linters:
   disable-all: true
   enable:
@@ -8,11 +19,13 @@ linters:
     - containedctx
     - depguard
     - dogsled
+    - dupword
     - durationcheck
     - errcheck
     - errchkjson
     - exportloopref
     - gci
+    - ginkgolinter
     - goconst
     - gocritic
     - godot
@@ -29,6 +42,7 @@ linters:
     - nilerr
     - noctx
     - nolintlint
+    - nosprintfhostport
     - prealloc
     - predeclared
     - revive
@@ -40,6 +54,7 @@ linters:
     - unconvert
     - unparam
     - unused
+    - usestdlibvars
     - whitespace
 
 linters-settings:
@@ -48,9 +63,48 @@ linters-settings:
     max-decl-chars: 50
   gci:
     local-prefixes: "k3f.io/kubeforce"
+  ginkgolinter:
+    # Suppress the wrong length assertion warning.
+    suppress-len-assertion: false
+    # Suppress the wrong nil assertion warning.
+    suppress-nil-assertion: false
+    # Suppress the wrong error assertion warning.
+    suppress-err-assertion: true
+  godot:
+    #   declarations - for top level declaration comments (default);
+    #   toplevel     - for top level comments;
+    #   all          - for all comments.
+    scope: toplevel
+    exclude:
+      - '^ \+.*'
+      - '^ ANCHOR.*'
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - performance
+    disabled-checks:
+      - appendAssign
+      - dupImport # https://github.com/go-critic/go-critic/issues/845
+      - evalOrder
+      - ifElseChain
+      - octalLiteral
+      - regexpSimplify
+      - sloppyReassign
+      - truncateCmp
+      - typeDefFirst
+      - unnamedResult
+      - unnecessaryDefer
+      - whyNoLint
+      - wrapperFunc
+      - rangeValCopy
+      - hugeParam
+  gosec:
+    excludes:
+      - G307 # Deferring unsafe method "Close" on type "\*os.File"
+      - G108 # Profiling endpoint is automatically exposed on /debug/pprof
   importas:
     no-unaliased: true
-#    no-extra-aliases: true
     alias:
       # Kubernetes
       - pkg: k8s.io/api/core/v1
@@ -63,6 +117,8 @@ linters-settings:
         alias: apierrors
       - pkg: k8s.io/apimachinery/pkg/util/errors
         alias: kerrors
+      - pkg: k8s.io/component-base/logs/api/v1
+        alias: logsv1
       # Controller Runtime
       - pkg: sigs.k8s.io/controller-runtime
         alias: ctrl
@@ -88,33 +144,39 @@ linters-settings:
     allow-unused: false
     allow-leading-space: false
     require-specific: true
-  staticcheck:
-    go: "1.19"
-  stylecheck:
-    go: "1.19"
-  gosec:
-    excludes:
-      - G307 # Deferring unsafe method "Close" on type "\*os.File"
-      - G108 # Profiling endpoint is automatically exposed on /debug/pprof
-  gocritic:
-    enabled-tags:
-      - experimental
-    disabled-checks:
-      - appendAssign
-      - dupImport # https://github.com/go-critic/go-critic/issues/845
-      - evalOrder
-      - ifElseChain
-      - octalLiteral
-      - regexpSimplify
-      - sloppyReassign
-      - truncateCmp
-      - typeDefFirst
-      - unnamedResult
-      - unnecessaryDefer
-      - whyNoLint
-      - wrapperFunc
-  unused:
-    go: "1.19"
+  revive:
+    rules:
+      # The following rules are recommended https://github.com/mgechev/revive#recommended-configuration
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+#      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+      - name: empty-block
+      - name: superfluous-else
+#      - name: unused-parameter
+      - name: unreachable-code
+      - name: redefines-builtin-id
+      #
+      # Rules in addition to the recommended configuration above.
+      #
+      - name: bool-literal-in-expr
+      - name: constant-logical-expr
+
 issues:
   max-same-issues: 0
   max-issues-per-linter: 0
@@ -144,14 +206,3 @@ issues:
         - unparam
       text: always receives
 
-run:
-  timeout: 10m
-  build-tags:
-    - tools
-    - e2e
-  skip-files:
-    - "zz_generated.*\\.go$"
-    - ".*conversion.*\\.go$"
-  skip-dirs:
-    - third_party
-  allow-parallel-runners: true

@@ -75,12 +75,12 @@ func (webhook *KubeforceMachine) Default(ctx context.Context, obj runtime.Object
 }
 
 func (webhook *KubeforceMachine) findKubeforceCluster(ctx context.Context, kfm *infrav1.KubeforceMachine) (*infrav1.KubeforceCluster, error) {
-	if kfm.Labels[clusterv1.ClusterLabelName] == "" {
+	if kfm.Labels[clusterv1.ClusterNameLabel] == "" {
 		return nil, nil
 	}
 	clusterKey := client.ObjectKey{
 		Namespace: kfm.Namespace,
-		Name:      kfm.Labels[clusterv1.ClusterLabelName],
+		Name:      kfm.Labels[clusterv1.ClusterNameLabel],
 	}
 	cluster := &clusterv1.Cluster{}
 	if err := webhook.Client.Get(ctx, clusterKey, cluster); err != nil {
@@ -163,7 +163,7 @@ func (webhook *KubeforceMachine) ValidateUpdate(ctx context.Context, oldObj, new
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected an KubeforceMachine but got a %T", newObj))
 	}
-	if oldMachine.Spec.AgentRef != nil && !reflect.DeepEqual(oldMachine.Spec.AgentRef, newMachine.Spec.AgentRef) {
+	if oldMachine.Status.AgentRef != nil && !reflect.DeepEqual(oldMachine.Status.AgentRef, newMachine.Status.AgentRef) {
 		return field.Forbidden(
 			field.NewPath("spec", "agentRef", "name"),
 			"the AgentRef of KubeforceMachine is immutable. It cannot be changed if it is initialized",

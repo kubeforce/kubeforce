@@ -242,7 +242,7 @@ func (r *TemplateReconciler) reconcilePlaybook(ctx context.Context, obj infrav1.
 // CreateLabels creates labels for Playbooks and Playbooks Deployments.
 func CreateLabels(obj infrav1.PlaybookControlObject, role string) map[string]string {
 	return map[string]string{
-		clusterv1.ClusterLabelName:              obj.GetLabels()[clusterv1.ClusterLabelName],
+		clusterv1.ClusterNameLabel:              obj.GetLabels()[clusterv1.ClusterNameLabel],
 		infrav1.PlaybookRoleLabelName:           role,
 		infrav1.PlaybookAgentNameLabelName:      obj.GetAgent().Name,
 		infrav1.PlaybookControllerNameLabelName: obj.GetName(),

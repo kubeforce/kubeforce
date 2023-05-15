@@ -20,7 +20,7 @@ set -o pipefail
 
 ROOT_MODULE_NAME=k3f.io/kubeforce
 MODULE_NAME=${ROOT_MODULE_NAME}/agent
-CODEGEN_TAG_VERSION=v0.25.0
+CODEGEN_TAG_VERSION=v0.26.4
 CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOT_DIR="$( cd "${CURRENT_DIR}/../../" && pwd )"
 CURRENT_DIR=$(dirname "${BASH_SOURCE[0]}")

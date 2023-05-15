@@ -108,7 +108,7 @@ const (
 	CertificatesGenerationFailedReason = "CertificatesGenerationFailed"
 
 	// CertificatesCorruptedReason (Severity=Error) documents a KubeforceCluster controller detecting
-	// an error while while retrieving certificates for a joining node.
+	// an error while retrieving certificates for a joining node.
 	CertificatesCorruptedReason = "CertificatesCorrupted"
 )
 

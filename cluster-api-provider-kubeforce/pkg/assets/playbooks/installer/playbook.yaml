@@ -5,20 +5,18 @@
   vars:
     targetArch: amd64
     downloadDir: /opt/kubeforce/download
-    containerdVersion: 1.5.4
-#    containerdFileName: "containerd-{{ containerdVersion }}-linux-{{ targetArch }}.tar.gz"
-#    containerdTarGzUrl: "https://github.com/containerd/containerd/releases/download/v{{ containerdVersion }}/{{ containerdFileName }}"
-    containerdFileName: "containerd-{{ containerdVersion }}.linux-{{ targetArch }}.tar.gz"
+    containerdVersion: 1.7.1
+    containerdFileName: "containerd-{{ containerdVersion }}-linux-{{ targetArch }}.tar.gz"
     containerdBaseUrl: "https://github.com/kind-ci/containerd-nightlies/releases/download/containerd-{{ containerdVersion }}"
     containerdTarGzUrl: "{{ containerdBaseUrl }}/{{ containerdFileName }}"
     runcUrl: "{{ containerdBaseUrl }}/runc.{{ targetArch }}"
-    cniPluginsVersion: v0.9.1
+    cniPluginsVersion: v1.3.0
     cniPluginsFileName: "cni-plugins-linux-{{ targetArch }}-{{ cniPluginsVersion }}.tgz"
     cniPluginsTarGzUrl: "https://github.com/containernetworking/plugins/releases/download/{{ cniPluginsVersion }}/{{ cniPluginsFileName }}"
-    crictlVersion: v1.21.0
+    crictlVersion: v1.27.0
     crictlFileName: "crictl-{{ crictlVersion }}-linux-{{ targetArch }}.tar.gz"
     crictlTarGzUrl: "https://github.com/kubernetes-sigs/cri-tools/releases/download/{{ crictlVersion }}/{{ crictlFileName }}"
-    kubernetesVersion: v1.21.3
+    kubernetesVersion: v1.26.4
     kubernetesPath: "https://storage.googleapis.com/kubernetes-release/release/{{ kubernetesVersion }}/bin/linux/{{ targetArch }}"
   vars_files:
     - variables.yaml
@@ -92,8 +90,10 @@
 
     - name: Persist br_netfilter module
       copy:
-        dest: /etc/modules-load.d/kubeforce-br_netfilter.conf
-        content: br_netfilter
+        dest: /etc/modules-load.d/k8s.conf
+        content: |
+          overlay
+          br_netfilter
         mode: 0644
       when: modinfo_br_netfilter.rc == 0
 

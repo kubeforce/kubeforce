@@ -85,15 +85,6 @@ rules:
 - apiGroups:
   - cluster.x-k8s.io
   resources:
-  - machinepools
-  - machinepools/status
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - cluster.x-k8s.io
-  resources:
   - machines
   - machines/status
   verbs:
@@ -176,27 +167,6 @@ rules:
   - infrastructure.cluster.x-k8s.io
   resources:
   - kubeforceclusters/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - infrastructure.cluster.x-k8s.io
-  resources:
-  - kubeforcemachinepools
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - infrastructure.cluster.x-k8s.io
-  resources:
-  - kubeforcemachinepools/finalizers
-  - kubeforcemachinepools/status
   verbs:
   - get
   - patch

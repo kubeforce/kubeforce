@@ -24,7 +24,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"k8s.io/component-base/logs"
-	logsapi "k8s.io/component-base/logs/api/v1"
+	logsv1 "k8s.io/component-base/logs/api/v1"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -35,7 +35,7 @@ import (
 
 // NewInitCommand returns a cobra command for install agent to the host..
 func NewInitCommand() *cobra.Command {
-	c := logsapi.NewLoggingConfiguration()
+	c := logsv1.NewLoggingConfiguration()
 	klog.EnableContextualLogging(true)
 	cmd := &cobra.Command{
 		Use:   "init",
@@ -44,7 +44,7 @@ func NewInitCommand() *cobra.Command {
 `,
 		Run: func(cmd *cobra.Command, args []string) {
 			logs.InitLogs()
-			if err := logsapi.ValidateAndApply(c, nil); err != nil {
+			if err := logsv1.ValidateAndApply(c, nil); err != nil {
 				fmt.Fprintf(os.Stderr, "%v\n", err)
 				os.Exit(1)
 			}
@@ -57,7 +57,7 @@ func NewInitCommand() *cobra.Command {
 			}
 		},
 	}
-	logsapi.AddFlags(c, cmd.Flags())
+	logsv1.AddFlags(c, cmd.Flags())
 	return cmd
 }
 

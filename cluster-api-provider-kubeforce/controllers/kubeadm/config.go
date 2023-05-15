@@ -21,12 +21,10 @@ import (
 
 	"github.com/pkg/errors"
 	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
-	utilexp "sigs.k8s.io/cluster-api/exp/util"
 	capiutil "sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "k3f.io/kubeforce/cluster-api-provider-kubeforce/api/v1beta1"
-	"k3f.io/kubeforce/cluster-api-provider-kubeforce/pkg/util"
 )
 
 // Config is an interface for kubeadm config.
@@ -51,22 +49,6 @@ func GetConfig(ctx context.Context, client client.Client, kubeforceMachine *infr
 			client:  client,
 			machine: machine,
 		}, nil
-	}
-	kubeforceMachinePool, err := util.GetOwnerKubeforceMachinePool(ctx, client, kubeforceMachine.ObjectMeta)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-	if kubeforceMachinePool != nil {
-		machinePool, err := utilexp.GetOwnerMachinePool(ctx, client, kubeforceMachinePool.ObjectMeta)
-		if err != nil {
-			return nil, errors.WithMessage(err, "unable to get owner MachinePool for KubeforceMachinePool")
-		}
-		if machinePool != nil {
-			return &machinePoolConfig{
-				client:      client,
-				machinePool: machinePool,
-			}, nil
-		}
 	}
 	return nil, nil
 }

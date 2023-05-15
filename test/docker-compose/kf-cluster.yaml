@@ -237,7 +237,7 @@ spec:
         criSocket: /var/run/containerd/containerd.sock
         kubeletExtraArgs:
           fail-swap-on: "false"
-          cgroup-driver: cgroupfs
+          cgroup-driver: systemd
           eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
         ignorePreflightErrors:
           - Swap
@@ -251,7 +251,7 @@ spec:
         criSocket: /var/run/containerd/containerd.sock
         kubeletExtraArgs:
           fail-swap-on: "false"
-          cgroup-driver: cgroupfs
+          cgroup-driver: systemd
           eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
         ignorePreflightErrors:
           - Swap
@@ -263,8 +263,9 @@ spec:
       name: sample-control-plane
       namespace: default
   replicas: 3
-  version: v1.24.8
+#  version: v1.24.8
 #  version: v1.25.4
+  version: v1.26.4
 ---
 ### WORKERS
 ---
@@ -363,7 +364,7 @@ spec:
         nodeRegistration:
           kubeletExtraArgs:
             fail-swap-on: "false"
-            cgroup-driver: cgroupfs
+            cgroup-driver: systemd
             eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
           ignorePreflightErrors:
             - Swap
@@ -398,7 +399,11 @@ spec:
         kind: KubeforceMachineTemplate
         name: sample-workers
         namespace: default
-      version: v1.24.8
+#      version: v1.24.8
+#      version: v1.25.4
+      version: v1.26.4
 ---
 #kubectl patch cluster sample --type merge -p '{"spec":{"paused": true}}'
-#kubectl apply -f https://projectcalico.docs.tigera.io/manifests/calico.yaml
+#kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.25.1/manifests/tigera-operator.yaml
+#kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.25.1/manifests/custom-resources.yaml
+#change pod cidr: kubectl edit Installation default

@@ -71,6 +71,9 @@ type KubeforceAgentReconciler struct {
 
 // Reconcile reconciles KubeforceAgent object.
 func (r *KubeforceAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, rerr error) {
+	if ctx.Err() != nil {
+		return reconcile.Result{}, nil
+	}
 	log := ctrl.LoggerFrom(ctx)
 
 	// Fetch the KubeforceAgent instance.
@@ -112,7 +115,8 @@ func (r *KubeforceAgentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Always attempt to Patch the KubeforceAgent object and status after each reconciliation.
 	defer func() {
 		r.reconcilePhase(ctx, kfAgent)
-		if err := patchKubeforceAgent(ctx, patchHelper, kfAgent); err != nil {
+		// We want to save the last status even if the context was closed.
+		if err := patchKubeforceAgent(context.Background(), patchHelper, kfAgent); err != nil {
 			log.Error(err, "failed to patch KubeforceAgent")
 			if rerr == nil {
 				rerr = err

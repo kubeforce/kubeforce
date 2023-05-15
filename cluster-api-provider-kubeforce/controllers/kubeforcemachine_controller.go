@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/yaml"
 
@@ -74,6 +75,9 @@ type KubeforceMachineReconciler struct {
 
 // Reconcile handles KubeforceMachine events.
 func (r *KubeforceMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, rerr error) {
+	if ctx.Err() != nil {
+		return reconcile.Result{}, nil
+	}
 	kubeforceMachine := &infrav1.KubeforceMachine{}
 	if err := r.Client.Get(ctx, req.NamespacedName, kubeforceMachine); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -105,7 +109,8 @@ func (r *KubeforceMachineReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 	// Always attempt to Patch the DockerMachine object and status after each reconciliation.
 	defer func() {
-		if err := patchKubeforceMachine(ctx, patchHelper, kubeforceMachine); err != nil {
+		// We want to save the last status even if the context was closed.
+		if err := patchKubeforceMachine(context.Background(), patchHelper, kubeforceMachine); err != nil {
 			log.Error(err, "failed to patch KubeforceMachine")
 			if rerr == nil {
 				rerr = err
@@ -199,7 +204,7 @@ func (r *KubeforceMachineReconciler) reconcileNormal(ctx context.Context, cluste
 	kfAgent := &infrav1.KubeforceAgent{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
 		Namespace: kfm.Namespace,
-		Name:      kfm.Spec.AgentRef.Name,
+		Name:      kfm.Status.AgentRef.Name,
 	}, kfAgent); err != nil {
 		conditions.MarkFalse(kfm, infrav1.AgentProvisionedCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, err.Error())
 		return ctrl.Result{}, err
@@ -264,21 +269,21 @@ func (r *KubeforceMachineReconciler) reconcileNormal(ctx context.Context, cluste
 
 // providerID return the provider identifier for this machine.
 func (r *KubeforceMachineReconciler) providerID(m *infrav1.KubeforceMachine) string {
-	return fmt.Sprintf("kf://%s", m.Spec.AgentRef.Name)
+	return fmt.Sprintf("kf://%s", m.Status.AgentRef.Name)
 }
 
 func (r *KubeforceMachineReconciler) reconcileAgentRef(ctx context.Context, kfMachine *infrav1.KubeforceMachine) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
-	if kfMachine.Spec.AgentRef == nil && kfMachine.Spec.AgentSelector == nil {
-		log.Info("Waiting for the agentRef or agentSelector to be initialized")
+	if kfMachine.Spec.AgentSelector == nil {
+		log.Info("Waiting for the agentSelector to be initialized")
 		conditions.MarkFalse(kfMachine, infrav1.AgentProvisionedCondition, infrav1.WaitingForAgentReason, clusterv1.ConditionSeverityInfo, "")
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
-	if kfMachine.Spec.AgentRef != nil {
+	if kfMachine.Status.AgentRef != nil {
 		kfAgent := &infrav1.KubeforceAgent{}
 		if err := r.Client.Get(ctx, client.ObjectKey{
 			Namespace: kfMachine.Namespace,
-			Name:      kfMachine.Spec.AgentRef.Name,
+			Name:      kfMachine.Status.AgentRef.Name,
 		}, kfAgent); err != nil {
 			conditions.MarkFalse(kfMachine, infrav1.AgentProvisionedCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, err.Error())
 			return ctrl.Result{}, err
@@ -314,7 +319,7 @@ func (r *KubeforceMachineReconciler) reconcileAgentRef(ctx context.Context, kfMa
 		return ctrl.Result{}, errors.New(msg)
 	}
 	if len(list.Items) == 1 {
-		kfMachine.Spec.AgentRef = &corev1.LocalObjectReference{
+		kfMachine.Status.AgentRef = &corev1.LocalObjectReference{
 			Name: list.Items[0].Name,
 		}
 		return ctrl.Result{RequeueAfter: time.Second}, nil
@@ -340,13 +345,13 @@ func (r *KubeforceMachineReconciler) reconcileAgentRef(ctx context.Context, kfMa
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 	kfAgent.Labels[infrav1.AgentMachineLabel] = kfMachine.Name
-	kfAgent.Labels[clusterv1.ClusterLabelName] = kfMachine.Labels[clusterv1.ClusterLabelName]
+	kfAgent.Labels[clusterv1.ClusterNameLabel] = kfMachine.Labels[clusterv1.ClusterNameLabel]
 	// use optimistic concurrent update here
 	if err := r.Client.Update(ctx, kfAgent); err != nil {
 		conditions.MarkFalse(kfMachine, infrav1.AgentProvisionedCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, err.Error())
 		return ctrl.Result{}, err
 	}
-	kfMachine.Spec.AgentRef = &corev1.LocalObjectReference{
+	kfMachine.Status.AgentRef = &corev1.LocalObjectReference{
 		Name: kfAgent.Name,
 	}
 	return ctrl.Result{RequeueAfter: time.Second}, nil
@@ -356,14 +361,14 @@ func (r *KubeforceMachineReconciler) reconcileDelete(ctx context.Context, kfm *i
 	if !controllerutil.ContainsFinalizer(kfm, infrav1.MachineFinalizer) {
 		return ctrl.Result{}, nil
 	}
-	if kfm.Spec.AgentRef == nil {
+	if kfm.Status.AgentRef == nil {
 		controllerutil.RemoveFinalizer(kfm, infrav1.MachineFinalizer)
 		return ctrl.Result{}, nil
 	}
 	kfAgent := &infrav1.KubeforceAgent{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
 		Namespace: kfm.Namespace,
-		Name:      kfm.Spec.AgentRef.Name,
+		Name:      kfm.Status.AgentRef.Name,
 	}, kfAgent); err != nil {
 		conditions.MarkFalse(kfm, infrav1.AgentProvisionedCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, err.Error())
 		return ctrl.Result{}, err
@@ -430,7 +435,7 @@ func (r *KubeforceMachineReconciler) reconcileDelete(ctx context.Context, kfm *i
 	}
 
 	delete(kfAgent.Labels, infrav1.AgentMachineLabel)
-	delete(kfAgent.Labels, clusterv1.ClusterLabelName)
+	delete(kfAgent.Labels, clusterv1.ClusterNameLabel)
 	// use optimistic concurrent update here
 	if err := r.Client.Update(ctx, kfAgent); err != nil {
 		conditions.MarkFalse(kfm, infrav1.AgentProvisionedCondition, infrav1.AgentProvisioningFailedReason, clusterv1.ConditionSeverityError, err.Error())
@@ -529,7 +534,7 @@ func (r *KubeforceMachineReconciler) KubeforceClusterToKubeforceMachines(o clien
 		return result
 	}
 
-	machineLabels := map[string]string{clusterv1.ClusterLabelName: cluster.Name}
+	machineLabels := map[string]string{clusterv1.ClusterNameLabel: cluster.Name}
 	machineList := &clusterv1.MachineList{}
 	if err := r.Client.List(context.TODO(), machineList, client.InNamespace(c.Namespace), client.MatchingLabels(machineLabels)); err != nil {
 		return nil
@@ -724,7 +729,7 @@ func (r *KubeforceMachineReconciler) createPlaybook(ctx context.Context, kfMachi
 }
 
 func (r *KubeforceMachineReconciler) getAPIServerEndpoints(kfMachine *infrav1.KubeforceMachine, kubeforceCluster *infrav1.KubeforceCluster) []string {
-	_, isControlPlane := kfMachine.ObjectMeta.Labels[clusterv1.MachineControlPlaneLabelName]
+	_, isControlPlane := kfMachine.ObjectMeta.Labels[clusterv1.MachineControlPlaneLabel]
 	apiServers := kubeforceCluster.Status.APIServers
 	if apiServers == nil {
 		apiServers = make([]string, 0)

@@ -9,7 +9,6 @@ resources:
 - bases/infrastructure.cluster.x-k8s.io_kubeforceclusters.yaml
 - bases/infrastructure.cluster.x-k8s.io_kubeforcemachines.yaml
 - bases/infrastructure.cluster.x-k8s.io_kubeforcemachinetemplates.yaml
-- bases/infrastructure.cluster.x-k8s.io_kubeforcemachinepools.yaml
 - bases/infrastructure.cluster.x-k8s.io_playbooks.yaml
 - bases/infrastructure.cluster.x-k8s.io_playbookdeployments.yaml
 - bases/infrastructure.cluster.x-k8s.io_kubeforceagentgroups.yaml

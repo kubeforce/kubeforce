@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	apiagent "k3f.io/kubeforce/agent/pkg/apis/agent"
@@ -61,6 +62,9 @@ type PlaybookDeploymentReconciler struct {
 
 // Reconcile handles PlaybookDeployment events.
 func (r *PlaybookDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, rerr error) {
+	if ctx.Err() != nil {
+		return reconcile.Result{}, nil
+	}
 	log := r.Log.WithValues("pd", req)
 	pd := &infrav1.PlaybookDeployment{}
 	if err := r.Client.Get(ctx, req.NamespacedName, pd); err != nil {
@@ -95,7 +99,8 @@ func (r *PlaybookDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Always attempt to Patch the PlaybookDeployment object and status after each reconciliation.
 	defer func() {
 		r.reconcilePhase(pd)
-		if err := patchPlaybookDeployment(ctx, patchHelper, pd); err != nil {
+		// We want to save the last status even if the context was closed.
+		if err := patchPlaybookDeployment(context.Background(), patchHelper, pd); err != nil {
 			if apierrors.IsNotFound(err) {
 				return
 			}
@@ -337,7 +342,7 @@ func (r *PlaybookDeploymentReconciler) reconcileNormal(ctx context.Context, pd *
 	}
 	agentClient, err := r.AgentClientCache.GetClientSet(ctx, client.ObjectKeyFromObject(kfAgent))
 	if err != nil {
-		pd.Status.FailureMessage = fmt.Sprintf("unable to get the agent ClisentSet err: %v", err)
+		pd.Status.FailureMessage = fmt.Sprintf("unable to get the agent ClientSet err: %v", err)
 		pd.Status.FailureReason = infrav1.AgentClientPlaybookError
 		conditions.MarkFalse(pd, infrav1.SynchronizationCondition, infrav1.SynchronizationFailedReason, clusterv1.ConditionSeverityError, err.Error())
 		return ctrl.Result{}, err
