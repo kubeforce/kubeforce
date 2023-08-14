@@ -22,7 +22,7 @@ jobs:
         id: vars
         run: echo "go_version=$(make go-version)" >> $GITHUB_OUTPUT
       - name: Set up Go
-        uses: actions/setup-go@v4.0.1 # tag=v3.5.0
+        uses: actions/setup-go@v4.1.0 # tag=v3.5.0
         with:
           go-version: ${{ steps.vars.outputs.go_version }}
       - name: golangci-lint
