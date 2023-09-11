@@ -17,7 +17,7 @@ jobs:
           - ""
           - hack/tools
     steps:
-      - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # tag=v3.5.2
+      - uses: actions/checkout@v4 # tag=v3.5.2
       - name: Calculate go version
         id: vars
         run: echo "go_version=$(make go-version)" >> $GITHUB_OUTPUT
